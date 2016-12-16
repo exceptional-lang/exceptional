@@ -1,0 +1,80 @@
+use ast::{Expression, Statement, Value};
+use num::BigInt;
+use num::rational::{Ratio};
+
+#[pub]
+statements -> Vec<Statement>
+  = statement ++ __
+
+statement -> Statement
+  = assignment
+
+assignment -> Statement
+  = "let" __ ident:identifier __ "=" __ exp:expression {
+      Statement::Assign(true, ident, Box::new(exp))
+    }
+
+  / ident:identifier __ "=" __ exp:expression {
+      Statement::Assign(false, ident, Box::new(exp))
+    }
+
+expression -> Expression
+  = addition
+
+addition -> Expression
+  = multiplication
+  / left:addition __ op:addition_op __ right:multiplication {
+      Expression::BinOp(op, Box::new(left), Box::new(right))
+    }
+
+addition_op -> String
+  = op:$([+-]) { op.to_owned() }
+
+multiplication -> Expression
+  = primary
+  / left:multiplication __ op:multiplication_op __ right:primary {
+      Expression::BinOp(op, Box::new(left), Box::new(right))
+    }
+
+multiplication_op -> String
+  = op:$([*/]) { op.to_owned() }
+
+primary -> Expression
+  = val:value { Expression::Value(val) }
+  / "(" __ exp:expression __ ")" { exp }
+
+identifier -> String
+  = ident:$([a-zA-Z] [a-zA-Z0-9_]*) { ident.to_owned() }
+
+#[pub]
+value -> Value
+  = number
+  / charString
+
+number -> Value
+  = digits:digits {
+      Value::Number(Ratio::from_integer(BigInt::parse_bytes(digits.as_bytes(), 10).unwrap()))
+    }
+
+digits -> String
+  /* = c:$([0-9]+) "." d:$([0-9]+) { c.parse().unwrap() } */
+  = c:$([0-9]+) { c.parse().unwrap() }
+
+charString -> Value
+  = string:string { Value::CharString(string) }
+
+string -> String
+  = '"' s:doubleQuotedCharacter* '"' { s.into_iter().collect() }
+
+doubleQuotedCharacter -> char
+  = !('"' / "\\" / eolChar) c:$. { c.chars().next().unwrap() }
+
+__
+  = [ \n]*
+  / comment
+
+comment
+  = "#" (!eolChar .)*
+
+eolChar
+  = [\n\r\u{2028}\u{2029}]

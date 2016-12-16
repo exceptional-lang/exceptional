@@ -1,0 +1,11 @@
+[package]
+name = "exceptional"
+version = "0.1.0"
+authors = ["Guillaume Malette <guillaume@shopify.com>"]
+build = "build.rs"
+
+[dependencies]
+num = "0.1"
+
+[build-dependencies]
+peg = { version = "0.4" }
