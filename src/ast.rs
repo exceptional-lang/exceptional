@@ -21,4 +21,5 @@ pub enum Statement {
 pub enum Expression {
     BinOp(String, Box<Expression>, Box<Expression>),
     Literal(Literal),
+    Identifier(String),
 }

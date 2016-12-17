@@ -54,6 +54,10 @@ mod test_helpers {
         Expression::Literal(literal)
     }
 
+    pub fn e_identifier(name: &str) -> Expression {
+        Expression::Identifier(name.to_owned())
+    }
+
     pub fn e_binop(op: &str, left: Expression, right: Expression) -> Expression {
         Expression::BinOp(op.to_owned(), Box::new(left), Box::new(right))
     }
@@ -135,7 +139,7 @@ mod test_expressions {
     #[test]
     fn parses_math() {
         assert_eq!(
-            parse_expression(&"1 + 2 * 3 / 5 - 4"),
+            parse_expression(&"1 + 2 * 3 / 5 - d"),
             e_binop(
                 "+",
                 e_literal(l_number(1, 1)),
@@ -146,10 +150,18 @@ mod test_expressions {
                         e_literal(l_number(2, 1)),
                         e_binop("/", e_literal(l_number(3, 1)), e_literal(l_number(5, 1)))
                     ),
-                    e_literal(l_number(4, 1)),
+                    e_identifier(&"d")
                 )
             )
         );
+    }
+
+    #[test]
+    fn parses_identifiers() {
+        assert_eq!(
+            parse_expression(&"toto"),
+            e_identifier(&"toto")
+        )
     }
 
     #[test]
@@ -209,8 +221,8 @@ mod test_statements {
     #[test]
     fn parses_calls_with_simple_args() {
         assert_eq!(
-            parse_statements("a(1)"),
-            [s_call(&"a", vec![e_literal(l_number(1, 1))])]
+            parse_statements("a(1, b)"),
+            [s_call(&"a", vec![e_literal(l_number(1, 1)), e_identifier(&"b")])]
         )
     }
 

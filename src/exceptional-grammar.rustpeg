@@ -53,6 +53,7 @@ multiplication_op -> String
 
 primary -> Expression
   = val:literal { Expression::Literal(val) }
+  / ident:identifier { Expression::Identifier(ident) }
   /* / lparen exp:expression rparen { exp } */
 
 identifier -> String
