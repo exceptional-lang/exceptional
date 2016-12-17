@@ -8,14 +8,14 @@ mod test_helpers {
     use num::rational::{Ratio};
     use num::{BigInt};
 
-    pub fn v_string(name: &str) -> Value {
-        Value::CharString(
+    pub fn v_string(name: &str) -> Literal {
+        Literal::CharString(
            name.to_owned()
         )
     }
 
-    pub fn v_ratio(num: i64, denom: i64) -> Value {
-        Value::Number(
+    pub fn v_ratio(num: i64, denom: i64) -> Literal {
+        Literal::Number(
             Ratio::new(
                 BigInt::from(num),
                 BigInt::from(denom)
@@ -23,24 +23,24 @@ mod test_helpers {
         )
     }
 
-    pub fn v_bool(b: bool) -> Value {
+    pub fn v_bool(b: bool) -> Literal {
         match b {
-            true => Value::Boolean(true),
-            false => Value::Boolean(false)
+            true => Literal::Boolean(true),
+            false => Literal::Boolean(false)
         }
     }
 
-    pub fn v_function(args: Vec<String>, statements: Vec<Statement>) -> Value {
-        Value::Fn(Box::new((args, statements)))
+    pub fn v_function(args: Vec<String>, statements: Vec<Statement>) -> Literal {
+        Literal::Fn(Box::new((args, statements)))
     }
 
-    pub fn s_assign(name: &str, value: Value) -> Statement {
+    pub fn s_assign(name: &str, literal: Literal) -> Statement {
         Statement::Assign(
             true,
             name.to_owned(),
             Box::new(
-                e_value(
-                    value
+                e_literal(
+                    literal
                 )
             )
         )
@@ -53,8 +53,8 @@ mod test_helpers {
         )
     }
 
-    pub fn e_value(value: Value) -> Expression {
-        Expression::Value(value)
+    pub fn e_literal(literal: Literal) -> Expression {
+        Expression::Literal(literal)
     }
 
     pub fn parse_expression(input: &str) -> Expression {
@@ -65,24 +65,24 @@ mod test_helpers {
         statements(input).unwrap()
     }
 
-    pub fn parse_value(input: &str) -> Value {
-        value(input).unwrap()
+    pub fn parse_literal(input: &str) -> Literal {
+        literal(input).unwrap()
     }
 }
 
 #[cfg(test)]
-mod test_values {
+mod test_literals {
     use super::test_helpers::*;
 
     #[test]
     fn parses_number() {
         assert_eq!(
-            parse_value(&"1234"),
+            parse_literal(&"1234"),
             v_ratio(1234, 1)
         );
 
         assert_eq!(
-            parse_value(&"0011"),
+            parse_literal(&"0011"),
             v_ratio(11, 1)
         );
     }
@@ -90,12 +90,12 @@ mod test_values {
     #[test]
     fn parses_strings() {
         assert_eq!(
-            parse_value(&"\"\""),
+            parse_literal(&"\"\""),
             v_string(&"")
         );
 
         assert_eq!(
-            parse_value(&"\"string with more words\""),
+            parse_literal(&"\"string with more words\""),
             v_string(&"string with more words")
         );
     }
@@ -103,12 +103,12 @@ mod test_values {
     #[test]
     fn parses_booleans() {
         assert_eq!(
-            parse_value(&"true"),
+            parse_literal(&"true"),
             v_bool(true)
         );
 
         assert_eq!(
-            parse_value(&"false"),
+            parse_literal(&"false"),
             v_bool(false)
         );
     }
@@ -119,10 +119,23 @@ mod test_expressions {
     use super::test_helpers::*;
 
     #[test]
+    fn parses_simple_expressions() {
+        assert_eq!(
+            parse_expression(&"1"),
+            e_literal(v_ratio(1, 1))
+        );
+
+        assert_eq!(
+            parse_expression(&"\"\""),
+            e_literal(v_string(&""))
+        )
+    }
+
+    #[test]
     fn parses_simple_functions() {
         assert_eq!(
             parse_expression(&"def() do end"),
-            e_value(
+            e_literal(
                 v_function(vec![], vec![])
             )
         )
@@ -132,7 +145,7 @@ mod test_expressions {
     fn parses_functions_with_args() {
         assert_eq!(
             parse_expression(&"def(a, b) do end"),
-            e_value(
+            e_literal(
                 v_function(vec!["a".to_owned(), "b".to_owned()], vec![])
             )
         )
@@ -142,7 +155,7 @@ mod test_expressions {
     fn prases_functions_with_bodies() {
         assert_eq!(
             parse_expression(&"def(a, b) do\nlet c = 1\nend"),
-            e_value(
+            e_literal(
                 v_function(
                     vec!["a".to_owned(), "b".to_owned()],
                     vec![s_assign(&"c", v_ratio(1, 1))]
@@ -176,7 +189,7 @@ mod test_statements {
     fn parses_calls_with_simple_args() {
         assert_eq!(
             parse_statements("a(1)"),
-            [s_call(&"a", vec![e_value(v_ratio(1, 1))])]
+            [s_call(&"a", vec![e_literal(v_ratio(1, 1))])]
         )
     }
 }

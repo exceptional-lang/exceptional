@@ -1,14 +1,13 @@
-use std::collections::BTreeMap;
 use num::rational::{BigRational};
 
 #[derive(Clone, Eq, Debug, Hash, Ord, PartialEq, PartialOrd)]
-pub enum Value {
+pub enum Literal {
     // Nil,
     Number(BigRational),
     CharString(String),
     Boolean(bool),
     // Vec(Vec<Value>),
-    // Map(BTreeMap<Rc<Value>, Rc<Value>>),
+    Map(Vec<(Expression, Expression)>),
     Fn(Box<(Vec<(String)>, Vec<Statement>)>),
 }
 
@@ -21,5 +20,5 @@ pub enum Statement {
 #[derive(Clone, Eq, Debug, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Expression {
     BinOp(String, Box<Expression>, Box<Expression>),
-    Value(Value),
+    Literal(Literal),
 }

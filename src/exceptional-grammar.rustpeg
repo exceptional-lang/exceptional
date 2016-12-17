@@ -1,4 +1,4 @@
-use ast::{Expression, Statement, Value};
+use ast::{Expression, Statement, Literal};
 use num::BigInt;
 use num::rational::{Ratio};
 
@@ -24,7 +24,7 @@ assignStatement -> Statement
 /*   = raise lparen mapDefinition rparen */
 
 callStatement -> Statement
-  = ident:identifier lparen rparen {
+  = ident:identifier lparen callArgs rparen {
       Statement::Call(ident, Box::new(Vec::new()))
     }
 
@@ -55,29 +55,30 @@ multiplication_op -> String
   = op:$([*/]) { op.to_owned() }
 
 primary -> Expression
-  = val:value { Expression::Value(val) }
-  / lparen exp:expression rparen { exp }
+  = val:literal { Expression::Literal(val) }
+  /* / lparen exp:expression rparen { exp } */
 
 identifier -> String
   = !keywords ident:$([a-zA-Z] [a-zA-Z0-9_]*) __ { ident.to_owned() }
 
 #[pub]
-value -> Value
+literal -> Literal
   = number
   / charString
   / boolean
+  / map
 
-number -> Value
+number -> Literal
   = digits:digits __ {
-      Value::Number(Ratio::from_integer(BigInt::parse_bytes(digits.as_bytes(), 10).unwrap()))
+      Literal::Number(Ratio::from_integer(BigInt::parse_bytes(digits.as_bytes(), 10).unwrap()))
     }
 
 digits -> String
   /* = c:$([0-9]+) "." d:$([0-9]+) { c.parse().unwrap() } */
   = c:$([0-9]+) { c.parse().unwrap() }
 
-charString -> Value
-  = string:string __ { Value::CharString(string) }
+charString -> Literal
+  = string:string __ { Literal::CharString(string) }
 
 string -> String
   = '"' s:doubleQuotedCharacter* '"' { s.into_iter().collect() }
@@ -85,14 +86,14 @@ string -> String
 doubleQuotedCharacter -> char
   = !('"' / "\\" / eolChar) c:$. { c.chars().next().unwrap() }
 
-boolean -> Value
-  = b:"false" __ { Value::Boolean(false) }
-  / b:"true" __ { Value::Boolean(true) }
+boolean -> Literal
+  = b:"false" __ { Literal::Boolean(false) }
+  / b:"true" __ { Literal::Boolean(true) }
 
 functionDefinition -> Expression
   = "def" lparen args:functionArgumentList rparen block:block {
-      Expression::Value(
-        Value::Fn(Box::new((args, block)))
+      Expression::Literal(
+        Literal::Fn(Box::new((args, block)))
       )
     }
 
@@ -104,6 +105,16 @@ comma
 
 block -> Vec<Statement>
   = do statements:statements end { statements }
+
+map -> Literal
+  = lbracket pairs:keyPairList rbracket {
+      Literal::Map(pairs)
+    }
+
+keyPairList -> Vec<(Expression, Expression)>
+  = pairs:(key:expression fatArrow value:expression { (key, value) } )* {
+      pairs
+    }
 __
   = [ \n]*
   / comment
@@ -135,6 +146,15 @@ lparen
 
 rparen
   = __ ")" __
+
+lbracket
+  = __ "{" __
+
+rbracket
+  = __ "}" __
+
+fatArrow
+  = __ "=>" __
 
 eolChar
   = [\n\r\u{2028}\u{2029}]
