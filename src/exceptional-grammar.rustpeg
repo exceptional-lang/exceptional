@@ -9,12 +9,12 @@ statements -> Vec<Statement>
 statement -> Statement
   = assignment
 
-assignment -> Statement
-  = "let" __ ident:identifier __ "=" __ exp:expression {
+assignStatement -> Statement
+  = let ident:identifier "=" __ exp:expression {
       Statement::Assign(true, ident, Box::new(exp))
     }
 
-  / ident:identifier __ "=" __ exp:expression {
+  / ident:identifier "=" __ exp:expression {
       Statement::Assign(false, ident, Box::new(exp))
     }
 
@@ -25,16 +25,16 @@ expression -> Expression
 
 addition -> Expression
   = multiplication
-  / left:addition __ op:addition_op __ right:multiplication {
+  / left:addition op:addition_op right:multiplication __ {
       Expression::BinOp(op, Box::new(left), Box::new(right))
     }
 
 addition_op -> String
-  = op:$([+-]) { op.to_owned() }
+  = op:$([+-]) __ { op.to_owned() }
 
 multiplication -> Expression
   = primary
-  / left:multiplication __ op:multiplication_op __ right:primary {
+  / left:multiplication op:multiplication_op right:primary {
       Expression::BinOp(op, Box::new(left), Box::new(right))
     }
 
@@ -43,10 +43,10 @@ multiplication_op -> String
 
 primary -> Expression
   = val:value { Expression::Value(val) }
-  / "(" __ exp:expression __ ")" { exp }
+  / lparen exp:expression rparen { exp }
 
 identifier -> String
-  = !keywords ident:$([a-zA-Z] [a-zA-Z0-9_]*) { ident.to_owned() }
+  = !keywords ident:$([a-zA-Z] [a-zA-Z0-9_]*) __ { ident.to_owned() }
 
 #[pub]
 value -> Value
@@ -55,7 +55,7 @@ value -> Value
   / boolean
 
 number -> Value
-  = digits:digits {
+  = digits:digits __ {
       Value::Number(Ratio::from_integer(BigInt::parse_bytes(digits.as_bytes(), 10).unwrap()))
     }
 
@@ -64,7 +64,7 @@ digits -> String
   = c:$([0-9]+) { c.parse().unwrap() }
 
 charString -> Value
-  = string:string { Value::CharString(string) }
+  = string:string __ { Value::CharString(string) }
 
 string -> String
   = '"' s:doubleQuotedCharacter* '"' { s.into_iter().collect() }
@@ -73,11 +73,11 @@ doubleQuotedCharacter -> char
   = !('"' / "\\" / eolChar) c:$. { c.chars().next().unwrap() }
 
 boolean -> Value
-  = b:"false" { Value::Boolean(false) }
-  / b:"true" { Value::Boolean(true) }
+  = b:"false" __ { Value::Boolean(false) }
+  / b:"true" __ { Value::Boolean(true) }
 
 functionDefinition -> Expression
-  = "def(" __ args:functionArgumentList __ ")" __ block:block __ {
+  = "def" lparen args:functionArgumentList rparen block:block {
       Expression::Value(
         Value::Fn(Box::new((args, block)))
       )
@@ -90,7 +90,7 @@ comma
   = "," __
 
 block -> Vec<Statement>
-  = "do" __ statements:statements __ "end" __ { statements }
+  = do statements:statements end { statements }
 __
   = [ \n]*
   / comment
@@ -99,10 +99,29 @@ comment
   = "#" (!eolChar .)*
 
 keywords
-  = "let"
+  = let
   / "def"
   / "do"
-  / "end"
+  / end
+  / raise
+
+let
+  = "let" __
+
+do
+  = "do" __
+
+end
+  = "end" __
+
+raise
+  = "raise"
+
+lparen
+  = "(" __
+
+rparen
+  = __ ")" __
 
 eolChar
   = [\n\r\u{2028}\u{2029}]
