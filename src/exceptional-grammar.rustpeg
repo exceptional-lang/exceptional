@@ -4,7 +4,7 @@ use num::rational::{Ratio};
 
 #[pub]
 statements -> Vec<Statement>
-  = statement ++ __
+  = statement ** __
 
 statement -> Statement
   = assignment
@@ -79,7 +79,7 @@ boolean -> Value
 functionDefinition -> Expression
   = "def(" __ args:functionArgumentList __ ")" __ block:block __ {
       Expression::Value(
-        Value::Fn(Box::new((args, Vec::new())))
+        Value::Fn(Box::new((args, block)))
       )
     }
 
@@ -90,7 +90,7 @@ comma
   = "," __
 
 block -> Vec<Statement>
-  = "do" __ "end" { Vec::new() }
+  = "do" __ statements:statements __ "end" __ { statements }
 __
   = [ \n]*
   / comment

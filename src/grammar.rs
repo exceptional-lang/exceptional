@@ -61,6 +61,16 @@ mod tests {
             Expression::Value(
                 v_function(vec!["a".to_owned(), "b".to_owned()], vec![])
             )
+        );
+
+        assert_eq!(
+            parse_expression(&"def(a, b) do\nlet c = 1\nend"),
+            Expression::Value(
+                v_function(
+                    vec!["a".to_owned(), "b".to_owned()],
+                    vec![s_assign(&"c", v_ratio(1, 1))]
+                )
+            )
         )
     }
 
