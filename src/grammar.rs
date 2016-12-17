@@ -34,6 +34,10 @@ mod test_helpers {
         Literal::Fn(Box::new((args, statements)))
     }
 
+    pub fn l_map(pairs: Vec<(Expression, Expression)>) -> Literal {
+        Literal::Map(pairs)
+    }
+
     pub fn s_assign(name: &str, literal: Literal) -> Statement {
         Statement::Assign(
             true,
@@ -116,6 +120,14 @@ mod test_literals {
             parse_literal(&"false"),
             l_bool(false)
         );
+    }
+
+    #[test]
+    fn parses_maps() {
+        assert_eq!(
+            parse_literal(&"{ a => b }"),
+            l_map(vec![(e_identifier(&"a"), e_identifier(&"b"))])
+        )
     }
 }
 
