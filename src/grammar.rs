@@ -54,6 +54,10 @@ mod test_helpers {
         Expression::Literal(literal)
     }
 
+    pub fn e_binop(op: &str, left: Expression, right: Expression) -> Expression {
+        Expression::BinOp(op.to_owned(), Box::new(left), Box::new(right))
+    }
+
     pub fn parse_expression(input: &str) -> Expression {
         expression(input).unwrap()
     }
@@ -129,6 +133,26 @@ mod test_expressions {
     }
 
     #[test]
+    fn parses_math() {
+        assert_eq!(
+            parse_expression(&"1 + 2 * 3 / 5 - 4"),
+            e_binop(
+                "+",
+                e_literal(l_number(1, 1)),
+                e_binop(
+                    "-",
+                    e_binop(
+                        "*",
+                        e_literal(l_number(2, 1)),
+                        e_binop("/", e_literal(l_number(3, 1)), e_literal(l_number(5, 1)))
+                    ),
+                    e_literal(l_number(4, 1)),
+                )
+            )
+        );
+    }
+
+    #[test]
     fn parses_simple_functions() {
         assert_eq!(
             parse_expression(&"def() do end"),
@@ -186,7 +210,23 @@ mod test_statements {
     fn parses_calls_with_simple_args() {
         assert_eq!(
             parse_statements("a(1)"),
-            [s_call(&"a", vec![e_literal(v_ratio(1, 1))])]
+            [s_call(&"a", vec![e_literal(l_number(1, 1))])]
+        )
+    }
+
+    #[test]
+    fn parses_calls_with_expressive_args() {
+        let args = vec![
+            e_binop(
+                "+",
+                e_literal(l_number(1, 1)),
+                e_literal(l_number(2, 1)),
+            ),
+            e_literal(l_function(vec!["x".to_owned()], vec![]))
+        ];
+        assert_eq!(
+            parse_statements("a(1 + 2, def(x) do end)"),
+            [s_call(&"a", args)]
         )
     }
 }
