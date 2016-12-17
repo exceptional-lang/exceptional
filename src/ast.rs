@@ -4,14 +4,12 @@ use num::rational::{BigRational};
 #[derive(Clone, Eq, Debug, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Value {
     // Nil,
-    // Bool(bool),
     Number(BigRational),
     CharString(String),
+    Boolean(bool),
     // Vec(Vec<Value>),
-    // HashMap(BTreeMap<Rc<Value>, Rc<Value>>),
-    // Fn(Box<(String, Vec<(String, Type)>, Vec<Expression>)>),
-
-    // PrimitiveFn(fn(Vec<Rc<Value>>) -> Value),
+    // Map(BTreeMap<Rc<Value>, Rc<Value>>),
+    Fn(Box<(Vec<(String)>, Vec<Statement>)>),
 }
 
 #[derive(Clone, Eq, Debug, Hash, Ord, PartialEq, PartialOrd)]

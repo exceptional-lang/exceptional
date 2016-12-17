@@ -18,8 +18,10 @@ assignment -> Statement
       Statement::Assign(false, ident, Box::new(exp))
     }
 
+#[pub]
 expression -> Expression
-  = addition
+  = functionDefinition
+  / addition
 
 addition -> Expression
   = multiplication
@@ -44,12 +46,13 @@ primary -> Expression
   / "(" __ exp:expression __ ")" { exp }
 
 identifier -> String
-  = ident:$([a-zA-Z] [a-zA-Z0-9_]*) { ident.to_owned() }
+  = !keywords ident:$([a-zA-Z] [a-zA-Z0-9_]*) { ident.to_owned() }
 
 #[pub]
 value -> Value
   = number
   / charString
+  / boolean
 
 number -> Value
   = digits:digits {
@@ -69,12 +72,37 @@ string -> String
 doubleQuotedCharacter -> char
   = !('"' / "\\" / eolChar) c:$. { c.chars().next().unwrap() }
 
+boolean -> Value
+  = b:"false" { Value::Boolean(false) }
+  / b:"true" { Value::Boolean(true) }
+
+functionDefinition -> Expression
+  = "def(" __ args:functionArgumentList __ ")" __ block:block __ {
+      Expression::Value(
+        Value::Fn(Box::new((args, Vec::new())))
+      )
+    }
+
+functionArgumentList -> Vec<String>
+  = identifier ** comma
+
+comma
+  = "," __
+
+block -> Vec<Statement>
+  = "do" __ "end" { Vec::new() }
 __
   = [ \n]*
   / comment
 
 comment
   = "#" (!eolChar .)*
+
+keywords
+  = "let"
+  / "def"
+  / "do"
+  / "end"
 
 eolChar
   = [\n\r\u{2028}\u{2029}]
