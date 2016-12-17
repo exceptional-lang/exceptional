@@ -14,7 +14,7 @@ pub enum Literal {
 #[derive(Clone, Eq, Debug, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Statement {
     Assign(bool, String, Box<Expression>),
-    Call(String, Box<Vec<Expression>>),
+    Call(String, Vec<Expression>),
 }
 
 #[derive(Clone, Eq, Debug, Hash, Ord, PartialEq, PartialOrd)]

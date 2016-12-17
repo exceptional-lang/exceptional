@@ -47,10 +47,7 @@ mod test_helpers {
     }
 
     pub fn s_call(name: &str, args: Vec<Expression>) -> Statement {
-        Statement::Call(
-            name.to_owned(),
-            Box::new(args),
-        )
+        Statement::Call(name.to_owned(), args)
     }
 
     pub fn e_literal(literal: Literal) -> Expression {

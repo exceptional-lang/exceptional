@@ -24,12 +24,9 @@ assignStatement -> Statement
 /*   = raise lparen mapDefinition rparen */
 
 callStatement -> Statement
-  = ident:identifier lparen callArgs rparen {
-      Statement::Call(ident, Box::new(Vec::new()))
+  = ident:identifier lparen args:(expression ** comma) rparen {
+      Statement::Call(ident, args)
     }
-
-callArgs -> Vec<Expression>
-  = expression ** comma
 
 #[pub]
 expression -> Expression
@@ -37,22 +34,22 @@ expression -> Expression
   / addition
 
 addition -> Expression
-  = multiplication
-  / left:addition op:addition_op right:multiplication __ {
+  = left:multiplication op:addition_op right:addition {
       Expression::BinOp(op, Box::new(left), Box::new(right))
     }
+  / multiplication
 
 addition_op -> String
   = op:$([+-]) __ { op.to_owned() }
 
 multiplication -> Expression
-  = primary
-  / left:multiplication op:multiplication_op right:primary {
+  = left:primary op:multiplication_op right:multiplication {
       Expression::BinOp(op, Box::new(left), Box::new(right))
     }
+  / primary
 
 multiplication_op -> String
-  = op:$([*/]) { op.to_owned() }
+  = op:$([*/]) __ { op.to_owned() }
 
 primary -> Expression
   = val:literal { Expression::Literal(val) }
