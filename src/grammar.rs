@@ -2,7 +2,7 @@
 include!(concat!(env!("OUT_DIR"), "/exceptional-grammar.rs"));
 
 #[cfg(test)]
-mod test_helpers {
+pub mod test_helpers {
     use super::*;
     use ast::*;
     use num::rational::{Ratio};
@@ -15,12 +15,7 @@ mod test_helpers {
     }
 
     pub fn l_number(num: i64, denom: i64) -> Literal {
-        Literal::Number(
-            Ratio::new(
-                BigInt::from(num),
-                BigInt::from(denom)
-            )
-        )
+        Literal::Number(build_ratio(num, denom))
     }
 
     pub fn l_bool(b: bool) -> Literal {
@@ -64,6 +59,13 @@ mod test_helpers {
 
     pub fn e_binop(op: &str, left: Expression, right: Expression) -> Expression {
         Expression::BinOp(op.to_owned(), Box::new(left), Box::new(right))
+    }
+
+    pub fn build_ratio(num: i64, denom: i64) -> Ratio<BigInt> {
+        Ratio::new(
+            BigInt::from(num),
+            BigInt::from(denom)
+        )
     }
 
     pub fn parse_expression(input: &str) -> Expression {
