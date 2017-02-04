@@ -28,7 +28,16 @@ pub type InstructionSequence = Vec<Instruction>;
 #[derive(Clone, Eq, Debug, PartialEq)]
 pub struct Closure {
     instructions: Box<InstructionSequence>,
-    // parent_activation:
+    // parent_activation: Rc<Activation>,
+}
+
+impl Closure {
+    pub fn new(instructions: InstructionSequence) -> Closure {
+        Closure {
+            instructions: Box::new(instructions),
+            // parent_activation: Rc::new(Activation::new()),
+        }
+    }
 }
 
 #[derive(Clone, Eq, Debug, PartialEq)]
@@ -38,6 +47,14 @@ struct Activation {
     local_bindings: BTreeMap<String, Rc<Value>>,
 }
 
+impl Activation {
+    pub fn new() -> Activation {
+        Activation {
+            local_bindings: BTreeMap::new(),
+        }
+    }
+}
+
 #[derive(Clone, Eq, Debug, PartialEq)]
 struct Frame {
     activation: Activation,
@@ -45,6 +62,13 @@ struct Frame {
 }
 
 impl Frame {
+    pub fn new() -> Frame {
+        Frame {
+            activation: Activation::new(),
+            exception_handlers: Vec::new(),
+        }
+    }
+
     pub fn local_assign(&mut self, binding_name: &str, value: Value) {
         self.activation.local_bindings.insert(binding_name.to_owned(), Rc::new(value));
     }
@@ -93,9 +117,7 @@ fn compile_literal<'a>(literal: &'a Literal) -> Value {
         &Literal::Number(ref num) => Value::Number(num.to_owned()),
         &Literal::CharString(ref str) => Value::CharString(str.to_string()),
         &Literal::Fn(ref args, ref statements) => {
-            let closure = Closure {
-                instructions: Box::new(compile(&statements)),
-            };
+            let closure = Closure::new(compile(&statements));
             Value::Fn(args.len() as u8, closure)
         },
         _ => panic!("not implemented"),
@@ -126,12 +148,7 @@ impl Vm {
         // println!("{:?}", stmts);
         let instructions = compile(&stmts.unwrap());
         // println!("{:?}", instructions);
-        let mut frame = Frame{
-            activation: Activation{
-                local_bindings: BTreeMap::new(),
-            },
-            exception_handlers: Vec::new(),
-        };
+        let mut frame = Frame::new();
 
         let mut vm = Vm{
             instructions: Rc::new(instructions),
@@ -195,9 +212,7 @@ mod test_vm {
 
     fn test_new_populates_function_instructions() {
         let vm = Vm::new("let b = def(x)\nend\nb(1)");
-        let closure = Closure {
-            instructions: Box::new(vec![]),
-        };
+        let closure = Closure::new(vec![]);
         assert_eq!(
             Rc::new(vec![
                 Instruction::Push(Value::Fn(1, closure)),
