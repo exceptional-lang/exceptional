@@ -8,7 +8,7 @@ pub enum Literal {
     Boolean(bool),
     // Vec(Vec<Value>),
     Map(Vec<(Expression, Expression)>),
-    Fn(Box<(Vec<(String)>, Vec<Statement>)>),
+    Fn(Box<Vec<String>>, Box<Vec<Statement>>),
 }
 
 #[derive(Clone, Eq, Debug, Hash, Ord, PartialEq, PartialOrd)]

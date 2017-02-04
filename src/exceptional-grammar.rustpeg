@@ -91,7 +91,7 @@ boolean -> Literal
 functionDefinition -> Expression
   = "def" lparen args:functionArgumentList rparen block:block {
       Expression::Literal(
-        Literal::Fn(Box::new((args, block)))
+        Literal::Fn(Box::new(args), Box::new(block))
       )
     }
 

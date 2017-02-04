@@ -26,7 +26,7 @@ pub mod test_helpers {
     }
 
     pub fn l_function(args: Vec<String>, statements: Vec<Statement>) -> Literal {
-        Literal::Fn(Box::new((args, statements)))
+        Literal::Fn(Box::new(args), Box::new(statements))
     }
 
     pub fn l_map(pairs: Vec<(Expression, Expression)>) -> Literal {
