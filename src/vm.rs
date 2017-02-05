@@ -5,17 +5,17 @@ use std::rc::Rc;
 use num::rational::BigRational;
 
 #[derive(Clone, Eq, Debug, PartialEq)]
-pub enum Value {
+pub enum Value<'a> {
     Number(BigRational),
     CharString(String),
     Boolean(bool),
-    Map(BTreeMap<Rc<Value>, Rc<Value>>),
-    Fn(u8, Closure),
+    Map(BTreeMap<Rc<Value<'a>>, Rc<Value<'a>>>),
+    Fn(u8, Closure<'a>),
 }
 
 #[derive(Clone, Eq, Debug, PartialEq)]
-pub enum Instruction {
-    Push(Value),
+pub enum Instruction<'a> {
+    Push(Value<'a>),
     Fetch(String),
     LocalAssign(String),
     Assign(String),
@@ -23,32 +23,32 @@ pub enum Instruction {
     // Set(String, Value),
 }
 
-pub type InstructionSequence = Vec<Instruction>;
+pub type InstructionSequence<'a> = Vec<Instruction<'a>>;
 
 #[derive(Clone, Eq, Debug, PartialEq)]
-pub struct Closure {
-    instructions: Box<InstructionSequence>,
-    // parent_activation: Rc<Activation>,
+pub struct Closure<'a> {
+    instructions: Box<InstructionSequence<'a>>,
+    parent_activation: &'a Activation<'a>,
 }
 
-impl Closure {
-    pub fn new(instructions: InstructionSequence) -> Closure {
+impl<'a> Closure<'a> {
+    pub fn new(instructions: InstructionSequence<'a>, parent_activation: &'a Activation) -> Closure<'a> {
         Closure {
             instructions: Box::new(instructions),
-            // parent_activation: Rc::new(Activation::new()),
+            parent_activation: parent_activation,
         }
     }
 }
 
 #[derive(Clone, Eq, Debug, PartialEq)]
-struct Activation {
+pub struct Activation<'a> {
     // <String> sucks because I'm copying all the memory all the time.
     // Figure this shit out
-    local_bindings: BTreeMap<String, Rc<Value>>,
+    local_bindings: BTreeMap<String, Rc<Value<'a>>>,
 }
 
-impl Activation {
-    pub fn new() -> Activation {
+impl<'a> Activation<'a> {
+    pub fn new() -> Activation<'a> {
         Activation {
             local_bindings: BTreeMap::new(),
         }
@@ -56,25 +56,25 @@ impl Activation {
 }
 
 #[derive(Clone, Eq, Debug, PartialEq)]
-struct Frame {
-    activation: Activation,
+struct Frame<'a> {
+    activation: Activation<'a>,
     exception_handlers: Vec<()>,
 }
 
-impl Frame {
-    pub fn new() -> Frame {
+impl<'a> Frame<'a> {
+    pub fn new() -> Frame<'a> {
         Frame {
             activation: Activation::new(),
             exception_handlers: Vec::new(),
         }
     }
 
-    pub fn local_assign(&mut self, binding_name: &str, value: Value) {
+    pub fn local_assign(&mut self, binding_name: &str, value: Value<'a>) {
         self.activation.local_bindings.insert(binding_name.to_owned(), Rc::new(value));
     }
 }
 
-fn compile_statement<'a>(statement: &'a Statement) -> InstructionSequence {
+fn compile_statement<'a, 'b>(statement: &'a Statement) -> InstructionSequence<'b> {
     match statement {
         &Statement::Assign(local, ref binding_name, ref expression) => {
             let mut instructions = compile_expression(expression);
@@ -98,7 +98,7 @@ fn compile_statement<'a>(statement: &'a Statement) -> InstructionSequence {
     }
 }
 
-fn compile_expression<'a>(expression: &'a Expression) -> InstructionSequence {
+fn compile_expression<'a, 'b>(expression: &'a Expression) -> InstructionSequence<'b> {
     match expression {
         &Expression::Literal(ref literal) => {
             vec![Instruction::Push(compile_literal(literal))]
@@ -112,19 +112,19 @@ fn compile_expression<'a>(expression: &'a Expression) -> InstructionSequence {
     }
 }
 
-fn compile_literal<'a>(literal: &'a Literal) -> Value {
+fn compile_literal<'a, 'b>(literal: &'a Literal) -> Value<'b> {
     match literal {
         &Literal::Number(ref num) => Value::Number(num.to_owned()),
         &Literal::CharString(ref str) => Value::CharString(str.to_string()),
-        &Literal::Fn(ref args, ref statements) => {
-            let closure = Closure::new(compile(&statements));
-            Value::Fn(args.len() as u8, closure)
-        },
+        // &Literal::Fn(ref args, ref statements) => {
+        //     let closure = Closure::new(compile(&statements));
+        //     Value::Fn(args.len() as u8, closure)
+        // },
         _ => panic!("not implemented"),
     }
 }
 
-fn compile(statements: &Vec<Statement>) -> InstructionSequence {
+fn compile<'a, 'b>(statements: &'a Vec<Statement>) -> InstructionSequence<'b> {
     let mut instructions = InstructionSequence::new();
 
     for statement in statements.iter() {
@@ -135,15 +135,15 @@ fn compile(statements: &Vec<Statement>) -> InstructionSequence {
 }
 
 #[derive(Clone, Eq, Debug, PartialEq)]
-pub struct Vm {
-    instructions: Rc<InstructionSequence>,
+pub struct Vm<'a> {
+    instructions: Rc<InstructionSequence<'a>>,
     pc: usize,
-    stack: Vec<Value>,
-    frames: Vec<Frame>,
+    stack: Vec<Value<'a>>,
+    frames: Vec<Frame<'a>>,
 }
 
-impl Vm {
-    pub fn new(source: &str) -> Vm {
+impl<'a> Vm<'a> {
+    pub fn new(source: &str) -> Vm<'a> {
         let stmts = statements(source);
         // println!("{:?}", stmts);
         let instructions = compile(&stmts.unwrap());
@@ -212,7 +212,8 @@ mod test_vm {
 
     fn test_new_populates_function_instructions() {
         let vm = Vm::new("let b = def(x)\nend\nb(1)");
-        let closure = Closure::new(vec![]);
+        let activation = Activation::new();
+        let closure = Closure::new(vec![], &activation);
         assert_eq!(
             Rc::new(vec![
                 Instruction::Push(Value::Fn(1, closure)),
