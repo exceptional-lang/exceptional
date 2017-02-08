@@ -10,12 +10,13 @@ pub enum Value<'a> {
     CharString(String),
     Boolean(bool),
     Map(BTreeMap<Rc<Value<'a>>, Rc<Value<'a>>>),
+    Closure(u8, Closure<'a>),
     Fn(u8, Closure<'a>),
 }
 
 #[derive(Clone, Eq, Debug, PartialEq)]
-pub enum Instruction<'a> {
-    Push(Value<'a>),
+pub enum Instruction {
+    Push(Literal),
     Fetch(String),
     LocalAssign(String),
     Assign(String),
@@ -23,16 +24,16 @@ pub enum Instruction<'a> {
     // Set(String, Value),
 }
 
-pub type InstructionSequence<'a> = Vec<Instruction<'a>>;
+pub type InstructionSequence = Vec<Instruction>;
 
 #[derive(Clone, Eq, Debug, PartialEq)]
 pub struct Closure<'a> {
-    instructions: Box<InstructionSequence<'a>>,
+    instructions: Box<InstructionSequence>,
     parent_activation: &'a Activation<'a>,
 }
 
 impl<'a> Closure<'a> {
-    pub fn new(instructions: InstructionSequence<'a>, parent_activation: &'a Activation) -> Closure<'a> {
+    pub fn new(instructions: InstructionSequence, parent_activation: &'a Activation) -> Closure<'a> {
         Closure {
             instructions: Box::new(instructions),
             parent_activation: parent_activation,
@@ -74,7 +75,7 @@ impl<'a> Frame<'a> {
     }
 }
 
-fn compile_statement<'a, 'b>(statement: &'a Statement) -> InstructionSequence<'b> {
+fn compile_statement<'a>(statement: &'a Statement) -> InstructionSequence {
     match statement {
         &Statement::Assign(local, ref binding_name, ref expression) => {
             let mut instructions = compile_expression(expression);
@@ -98,10 +99,10 @@ fn compile_statement<'a, 'b>(statement: &'a Statement) -> InstructionSequence<'b
     }
 }
 
-fn compile_expression<'a, 'b>(expression: &'a Expression) -> InstructionSequence<'b> {
+fn compile_expression<'a>(expression: &'a Expression) -> InstructionSequence {
     match expression {
         &Expression::Literal(ref literal) => {
-            vec![Instruction::Push(compile_literal(literal))]
+            vec![Instruction::Push(literal.to_owned())]
         },
         &Expression::Identifier(ref binding_name) => {
             vec![Instruction::Fetch(binding_name.to_owned())]
@@ -112,19 +113,7 @@ fn compile_expression<'a, 'b>(expression: &'a Expression) -> InstructionSequence
     }
 }
 
-fn compile_literal<'a, 'b>(literal: &'a Literal) -> Value<'b> {
-    match literal {
-        &Literal::Number(ref num) => Value::Number(num.to_owned()),
-        &Literal::CharString(ref str) => Value::CharString(str.to_string()),
-        // &Literal::Fn(ref args, ref statements) => {
-        //     let closure = Closure::new(compile(&statements));
-        //     Value::Fn(args.len() as u8, closure)
-        // },
-        _ => panic!("not implemented"),
-    }
-}
-
-fn compile<'a, 'b>(statements: &'a Vec<Statement>) -> InstructionSequence<'b> {
+fn compile<'a>(statements: &'a Vec<Statement>) -> InstructionSequence {
     let mut instructions = InstructionSequence::new();
 
     for statement in statements.iter() {
@@ -136,7 +125,7 @@ fn compile<'a, 'b>(statements: &'a Vec<Statement>) -> InstructionSequence<'b> {
 
 #[derive(Clone, Eq, Debug, PartialEq)]
 pub struct Vm<'a> {
-    instructions: Rc<InstructionSequence<'a>>,
+    instructions: Rc<InstructionSequence>,
     pc: usize,
     stack: Vec<Value<'a>>,
     frames: Vec<Frame<'a>>,
@@ -159,40 +148,69 @@ impl<'a> Vm<'a> {
         vm
     }
 
-    pub fn run(&mut self) {
-        for instruction in self.instructions.iter() {
+    pub fn run(&'a mut self) {
+        loop {
+            let instruction = self.instructions.get(self.pc).unwrap();
+
             match instruction {
                 &Instruction::Push(ref value) => {
-                    self.stack.push(value.to_owned())
+                    let top_activation = &mut self.frames.last_mut().unwrap().activation;
+                    self.stack.push(Vm::literal_to_value(value, top_activation))
                 },
-                &Instruction::LocalAssign(ref binding_name) => {
-                    let value = self.stack.pop().unwrap();
-                    self.frames.last_mut().unwrap().local_assign(binding_name, value)
-                },
-                &Instruction::Call(arg_size) => {
-                    let (closure_arg_size, closure) = match self.stack.pop() {
-                        Some(Value::Fn(arg_size, closure)) => (arg_size, closure),
-                        _ => panic!("expected a closure"),
-                    };
-                    // if arg_size != closure_arg_size {
-                    //     panic!("wrong number of arguments")
-                    // };
-                    // make sure closure
-                    // verify args
-                    // push frame
-                    // make new activation
-                    // assign values
-                    // change iseq
-                },
+                // Instruction::LocalAssign(ref binding_name) => {
+                //     Vm::local_assign(&mut self.stack, &mut self.frames, binding_name)
+                // },
+                // Instruction::Call(arg_size) => {
+                //     let (closure_arg_size, closure) = match self.stack.pop() {
+                //         Some(Value::Closure(arg_size, closure)) => (arg_size, closure),
+                //         _ => panic!("expected a closure"),
+                //     };
+                //     // if arg_size != closure_arg_size {
+                //     //     panic!("wrong number of arguments")
+                //     // };
+                //     // make sure closure
+                //     // verify args
+                //     // push frame
+                //     // make new activation
+                //     // assign values
+                //     // change iseq
+                // },
                 _ => ()
             };
         };
+    }
+
+    // fn next_instruction(vm: &Vm) -> Option<Instruction> {
+    //     vm.instructions.get(vm.pc).unwrap()
+    // }
+
+    fn local_assign(stack: &'a mut Vec<Value<'a>>, frames: &'a mut Vec<Frame<'a>>, binding_name: &str) {
+        let value = stack.pop().unwrap();
+        frames.last_mut().unwrap().local_assign(binding_name, value);
+    }
+
+    fn push_value(stack: &'a mut Vec<Value<'a>>, top_activation: &'a Activation, value: &Literal) {
+        stack.push(Vm::literal_to_value(value, top_activation))
+    }
+
+    fn literal_to_value<'b>(literal: &'b Literal, top_activation: &'a Activation) -> Value<'a> {
+        match literal {
+            &Literal::Number(ref num) => Value::Number(num.to_owned()),
+            &Literal::CharString(ref str) => Value::CharString(str.to_string()),
+            &Literal::Fn(ref args, ref statements) => {
+                // Statements should be compiled ahead of time
+                let closure = Closure::new(compile(&statements), top_activation);
+                Value::Closure(args.len() as u8, closure)
+            },
+            _ => panic!("not implemented"),
+        }
     }
 }
 
 #[cfg(test)]
 mod test_vm {
     use super::*;
+    use ast::*;
     use std::rc::Rc;
     use grammar::test_helpers::*;
 
@@ -201,9 +219,9 @@ mod test_vm {
         let vm = Vm::new("let a = 1\nlet b = \"\"\n");
         assert_eq!(
             Rc::new(vec![
-                Instruction::Push(Value::Number(build_ratio(1, 1))),
+                Instruction::Push(Literal::Number(build_ratio(1, 1))),
                 Instruction::LocalAssign("a".to_owned()),
-                Instruction::Push(Value::CharString("".to_string())),
+                Instruction::Push(Literal::CharString("".to_string())),
                 Instruction::LocalAssign("b".to_owned()),
             ]),
             vm.instructions
@@ -216,9 +234,9 @@ mod test_vm {
         let closure = Closure::new(vec![], &activation);
         assert_eq!(
             Rc::new(vec![
-                Instruction::Push(Value::Fn(1, closure)),
+                // Instruction::Push(Value::Fn(1, closure)),
                 Instruction::LocalAssign("b".to_owned()),
-                Instruction::Push(Value::Number(build_ratio(1, 1))),
+                Instruction::Push(Literal::Number(build_ratio(1, 1))),
                 Instruction::Fetch("b".to_owned()),
                 Instruction::Call(1),
             ]),
