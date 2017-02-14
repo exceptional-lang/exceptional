@@ -5,7 +5,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use num::rational::BigRational;
 
-#[derive(Clone, Eq, Debug, PartialEq)]
+#[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
 pub enum Value {
     Number(BigRational),
     CharString(String),
@@ -14,20 +14,21 @@ pub enum Value {
     Closure(Box<Vec<String>>, Closure),
 }
 
-#[derive(Clone, Eq, Debug, PartialEq)]
+#[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
 pub enum Instruction {
     Push(Literal),
     Fetch(String),
     LocalAssign(String),
     Assign(String),
     Call(usize),
+    MakeMap(usize),
     Nop,
     // Set(String, Value),
 }
 
 pub type InstructionSequence = Vec<Instruction>;
 
-#[derive(Clone, Eq, Debug, PartialEq)]
+#[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
 pub struct BindingMap {
     map: Rc<RefCell<BTreeMap<String, Value>>>,
     parent: Option<Box<BindingMap>>,
@@ -76,7 +77,7 @@ impl BindingMap {
     }
 }
 
-#[derive(Clone, Eq, Debug, PartialEq)]
+#[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
 pub struct Closure {
     instructions: Rc<InstructionSequence>,
     parent_bindings: BindingMap,
@@ -126,14 +127,30 @@ fn compile_statement<'a>(statement: &'a Statement) -> InstructionSequence {
             instructions.push(Instruction::Call(expressions.len()));
             instructions
         },
-        // _ => panic!("not implemented"),
+//         _ => panic!("not implemented"),
     }
 }
 
 fn compile_expression<'a>(expression: &'a Expression) -> InstructionSequence {
     match expression {
         &Expression::Literal(ref literal) => {
-            vec![Instruction::Push(literal.to_owned())]
+            match literal {
+                &Literal::Map(ref pairs) => {
+                    let mut map_instructions =
+                        pairs
+                            .iter()
+                            .flat_map(|&(ref key, ref value)| {
+                                let mut insns = compile_expression(key);
+                                insns.extend(compile_expression(value).iter().cloned());
+                                insns
+                            })
+                            .collect::<InstructionSequence>();
+
+                    map_instructions.push(Instruction::MakeMap(pairs.len()));
+                    map_instructions
+                },
+                _ => vec![Instruction::Push(literal.to_owned())],
+            }
         },
         &Expression::Identifier(ref binding_name) => {
             vec![Instruction::Fetch(binding_name.to_owned())]
@@ -346,9 +363,18 @@ mod test_vm {
 
     #[test]
     fn test_new_populates_function_instructions() {
-        let vm = Vm::new("let b = def(x) do\nend\nb(1)");
+        let source = "\
+            let a = { 1 => 1 }
+            let b = def(x) do\
+            end\
+            b(1)";
+        let vm = Vm::new(source);
         assert_eq!(
             Rc::new(vec![
+                Instruction::Push(Literal::Number(build_ratio(1, 1))),
+                Instruction::Push(Literal::Number(build_ratio(1, 1))),
+                Instruction::MakeMap(1),
+                Instruction::LocalAssign("a".to_owned()),
                 Instruction::Push(Literal::Fn(Box::new(vec!["x".to_owned()]), Box::new(vec![]))),
                 Instruction::LocalAssign("b".to_owned()),
                 Instruction::Push(Literal::Number(build_ratio(1, 1))),
