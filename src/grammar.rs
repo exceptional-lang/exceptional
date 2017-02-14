@@ -147,6 +147,15 @@ mod test_expressions {
         assert_eq!(
             parse_expression(&"\"\""),
             e_literal(l_string(&""))
+        );
+
+        assert_eq!(
+            parse_expression(&"{ \"a\" => 1 }"),
+            e_literal(
+                l_map(
+                    vec![(e_literal(l_string(&"a")), e_literal(l_number(1, 1)))]
+                )
+            )
         )
     }
 
