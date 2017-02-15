@@ -243,6 +243,15 @@ impl Vm {
                     let value = self.frames.last().unwrap().bindings.fetch(binding_name).unwrap();
                     self.stack.push(value);
                 },
+                Instruction::MakeMap(size) => {
+                    let mut map = BTreeMap::new();
+                    for _ in 0..size {
+                        let value = self.stack.pop().unwrap();
+                        let key = self.stack.pop().unwrap();
+                        map.insert(Rc::new(key), Rc::new(value));
+                    }
+                    self.stack.push(Value::Map(map))
+                },
                 _ => panic!("unknown instruction {:?}", instruction),
             };
         };
@@ -364,7 +373,7 @@ mod test_vm {
     #[test]
     fn test_new_populates_function_instructions() {
         let source = "\
-            let a = { 1 => 1 }
+            let a = { 1 => 2 }
             let b = def(x) do\
             end\
             b(1)";
@@ -372,7 +381,7 @@ mod test_vm {
         assert_eq!(
             Rc::new(vec![
                 Instruction::Push(Literal::Number(build_ratio(1, 1))),
-                Instruction::Push(Literal::Number(build_ratio(1, 1))),
+                Instruction::Push(Literal::Number(build_ratio(2, 1))),
                 Instruction::MakeMap(1),
                 Instruction::LocalAssign("a".to_owned()),
                 Instruction::Push(Literal::Fn(Box::new(vec!["x".to_owned()]), Box::new(vec![]))),
@@ -387,18 +396,28 @@ mod test_vm {
 
     #[test]
     fn test_run_simple() {
-        let mut vm = Vm::new("let a = 1");
+        let mut vm = Vm::new("let a = 1\
+        let b = { \"a\" => 1 }");
         vm.run();
         assert_eq!(
             Value::Number(build_ratio(1, 1)),
             vm.frames.last().unwrap().bindings.fetch(&"a".to_owned()).unwrap().to_owned()
+        );
+        let expected_map = {
+            let mut map = BTreeMap::new();
+            map.insert(Rc::new(Value::CharString("a".to_owned())), Rc::new(Value::Number(build_ratio(1, 1))));
+            map
+        };
+        assert_eq!(
+            Value::Map(expected_map),
+            vm.frames.last().unwrap().bindings.fetch(&"b".to_owned()).unwrap().to_owned()
         )
     }
 
     #[test]
     fn test_function_call() {
         let source =
-        "let a = \"\"\
+            "let a = \"\"\
             let x = def() do
               a = 1
             end\
