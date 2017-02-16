@@ -53,6 +53,10 @@ pub mod test_helpers {
         Statement::Raise(args)
     }
 
+    pub fn s_rescue(map: Literal, statements: Vec<Statement>) -> Statement {
+        Statement::Rescue(map, Box::new(statements))
+    }
+
     pub fn e_literal(literal: Literal) -> Expression {
         Expression::Literal(literal)
     }
@@ -274,6 +278,14 @@ mod test_statements {
         assert_eq!(
             parse_statements("raise(1, \"a\")"),
             [s_raise(vec![e_literal(l_number(1, 1)), e_literal(l_string("a"))])]
+        )
+    }
+
+    #[test]
+    fn parses_rescue_statements() {
+        assert_eq!(
+            parse_statements("rescue({}) do\nend"),
+            [s_rescue(l_map(vec![]), vec![])]
         )
     }
 }

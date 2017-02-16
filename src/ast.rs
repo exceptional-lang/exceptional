@@ -16,6 +16,7 @@ pub enum Statement {
     Assign(bool, String, Box<Expression>),
     Call(String, Vec<Expression>),
     Raise(Vec<Expression>),
+    Rescue(Literal, Box<Vec<Statement>>),
 }
 
 #[derive(Clone, Eq, Debug, Hash, Ord, PartialEq, PartialOrd)]

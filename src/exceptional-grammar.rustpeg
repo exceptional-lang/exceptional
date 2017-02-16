@@ -10,6 +10,7 @@ statement -> Statement
   = assignStatement
   / callStatement
   / raiseStatement
+  / rescueStatement
 
 assignStatement -> Statement
   = let ident:identifier "=" __ exp:expression {
@@ -20,17 +21,22 @@ assignStatement -> Statement
       Statement::Assign(false, ident, Box::new(exp))
     }
 
-raiseStatement -> Statement
-  = raise lparen args:functionArguments rparen {
-      Statement::Raise(args)
-    }
-
 callStatement -> Statement
-  = ident:identifier lparen args:functionArguments rparen {
+  = ident:identifier lparen args:callArguments rparen {
       Statement::Call(ident, args)
     }
 
-functionArguments -> Vec<Expression>
+raiseStatement -> Statement
+  = raise lparen args:callArguments rparen {
+      Statement::Raise(args)
+    }
+
+rescueStatement -> Statement
+  = rescue lparen map:map rparen block:block {
+      Statement::Rescue(map, Box::new(block))
+    }
+
+callArguments -> Vec<Expression>
   = args:(expression ** comma) {
       args
     }
@@ -133,6 +139,7 @@ keywords
   / "do"
   / end
   / raise
+  / rescue
 
 let
   = "let" __
@@ -145,6 +152,9 @@ end
 
 raise
   = "raise"
+
+rescue
+  = "rescue"
 
 lparen
   = "(" __
