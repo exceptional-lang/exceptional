@@ -49,6 +49,10 @@ pub mod test_helpers {
         Statement::Call(name.to_owned(), args)
     }
 
+    pub fn s_raise(args: Vec<Expression>) -> Statement {
+        Statement::Raise(args)
+    }
+
     pub fn e_literal(literal: Literal) -> Expression {
         Expression::Literal(literal)
     }
@@ -262,6 +266,14 @@ mod test_statements {
         assert_eq!(
             parse_statements("a(1 + 2, def(x) do end)"),
             [s_call(&"a", args)]
+        )
+    }
+
+    #[test]
+    fn parses_raise_statements() {
+        assert_eq!(
+            parse_statements("raise(1, \"a\")"),
+            [s_raise(vec![e_literal(l_number(1, 1)), e_literal(l_string("a"))])]
         )
     }
 }

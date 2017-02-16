@@ -9,7 +9,7 @@ statements -> Vec<Statement>
 statement -> Statement
   = assignStatement
   / callStatement
-  /* / raiseStatement */
+  / raiseStatement
 
 assignStatement -> Statement
   = let ident:identifier "=" __ exp:expression {
@@ -20,12 +20,19 @@ assignStatement -> Statement
       Statement::Assign(false, ident, Box::new(exp))
     }
 
-/* raiseStatement -> Statement */
-/*   = raise lparen mapDefinition rparen */
+raiseStatement -> Statement
+  = raise lparen args:functionArguments rparen {
+      Statement::Raise(args)
+    }
 
 callStatement -> Statement
-  = ident:identifier lparen args:(expression ** comma) rparen {
+  = ident:identifier lparen args:functionArguments rparen {
       Statement::Call(ident, args)
+    }
+
+functionArguments -> Vec<Expression>
+  = args:(expression ** comma) {
+      args
     }
 
 #[pub]

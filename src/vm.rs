@@ -127,7 +127,7 @@ fn compile_statement<'a>(statement: &'a Statement) -> InstructionSequence {
             instructions.push(Instruction::Call(expressions.len()));
             instructions
         },
-//         _ => panic!("not implemented"),
+         _ => panic!("not implemented"),
     }
 }
 
