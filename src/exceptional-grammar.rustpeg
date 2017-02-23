@@ -1,4 +1,4 @@
-use ast::{Expression, Statement, Literal};
+use ast::{Expression, Statement, Literal, Pattern};
 use num::BigInt;
 use num::rational::{Ratio};
 
@@ -32,8 +32,8 @@ raiseStatement -> Statement
     }
 
 rescueStatement -> Statement
-  = rescue lparen map:map rparen block:block {
-      Statement::Rescue(map, Box::new(block))
+  = rescue lparen pattern:pattern rparen block:block {
+      Statement::Rescue(pattern, Box::new(block))
     }
 
 callArguments -> Vec<Expression>
@@ -89,10 +89,10 @@ digits -> String
   = c:$([0-9]+) { c.parse().unwrap() }
 
 charString -> Literal
-  = string:string __ { Literal::CharString(string) }
+  = string:string { Literal::CharString(string) }
 
 string -> String
-  = '"' s:doubleQuotedCharacter* '"' { s.into_iter().collect() }
+  = '"' s:doubleQuotedCharacter* '"' __ { s.into_iter().collect() }
 
 doubleQuotedCharacter -> char
   = !('"' / "\\" / eolChar) c:$. { c.chars().next().unwrap() }
@@ -125,6 +125,53 @@ map -> Literal
 keyPairList -> Vec<(Expression, Expression)>
   = pairs:(key:expression fatArrow value:expression { (key, value) } )* {
       pairs
+    }
+
+pattern -> Pattern
+  = mapPattern
+  / numberPattern
+  / charStringPattern
+  / booleanPattern
+  / identifierPattern
+
+mapPattern -> Pattern
+  = lbracket pairs:patternPairList rbracket {
+      Pattern::Map(pairs)
+    }
+
+patternPairList -> Vec<(Pattern, Pattern)>
+  = pairs:(key:pattern fatArrow value:pattern { (key, value) } )* {
+      pairs
+    }
+
+
+numberPattern -> Pattern
+  = number:number {
+      match number {
+        Literal::Number(n) => Pattern::Number(n),
+        _ => panic!("unexpected type"),
+      }
+    }
+
+charStringPattern -> Pattern
+  = string:charString {
+      match string {
+        Literal::CharString(s) => Pattern::CharString(s),
+        _ => panic!("unexpected type"),
+      }
+    }
+
+booleanPattern -> Pattern
+  = bool:boolean {
+      match bool {
+        Literal::Boolean(b) => Pattern::Boolean(b),
+        _ => panic!("unexpected type"),
+      }
+    }
+
+identifierPattern -> Pattern
+  = ident:identifier {
+      Pattern::Identifier(ident)
     }
 __
   = [ \n]*

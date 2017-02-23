@@ -8,10 +8,8 @@ pub mod test_helpers {
     use num::rational::{Ratio};
     use num::{BigInt};
 
-    pub fn l_string(name: &str) -> Literal {
-        Literal::CharString(
-           name.to_owned()
-        )
+    pub fn l_string(string: &str) -> Literal {
+        Literal::CharString(string.to_owned())
     }
 
     pub fn l_number(num: i64, denom: i64) -> Literal {
@@ -31,6 +29,26 @@ pub mod test_helpers {
 
     pub fn l_map(pairs: Vec<(Expression, Expression)>) -> Literal {
         Literal::Map(pairs)
+    }
+
+    pub fn p_map(pairs: Vec<(Pattern, Pattern)>) -> Pattern {
+        Pattern::Map(pairs)
+    }
+
+    pub fn p_bool(b: bool) -> Pattern {
+        Pattern::Boolean(b)
+    }
+
+    pub fn p_number(num: i64, denom: i64) -> Pattern {
+        Pattern::Number(build_ratio(num, denom))
+    }
+
+    pub fn p_string(string: &str) -> Pattern {
+        Pattern::CharString(string.to_owned())
+    }
+
+    pub fn p_ident(name: &str) -> Pattern {
+        Pattern::Identifier(name.to_owned())
     }
 
     pub fn s_assign(name: &str, literal: Literal) -> Statement {
@@ -53,7 +71,7 @@ pub mod test_helpers {
         Statement::Raise(args)
     }
 
-    pub fn s_rescue(map: Literal, statements: Vec<Statement>) -> Statement {
+    pub fn s_rescue(map: Pattern, statements: Vec<Statement>) -> Statement {
         Statement::Rescue(map, Box::new(statements))
     }
 
@@ -285,7 +303,60 @@ mod test_statements {
     fn parses_rescue_statements() {
         assert_eq!(
             parse_statements("rescue({}) do\nend"),
-            [s_rescue(l_map(vec![]), vec![])]
+            [s_rescue(p_map(vec![]), vec![])]
+        )
+    }
+
+    #[test]
+    fn parses_rescue_with_number_patterns() {
+        assert_eq!(
+            parse_statements("rescue(1) do\nend"),
+            [
+                s_rescue(p_number(1, 1), vec![])
+            ]
+        )
+    }
+
+    #[test]
+    fn parses_rescue_with_string_patterns() {
+        assert_eq!(
+            parse_statements("rescue(\"toto\") do\nend"),
+            [
+                s_rescue(p_string("toto"), vec![])
+            ]
+        )
+    }
+
+    #[test]
+    fn parses_rescue_with_ident_patterns() {
+        assert_eq!(
+            parse_statements("rescue(toto) do\nend"),
+            [
+                s_rescue(p_ident("toto"), vec![])
+            ]
+        )
+    }
+
+    #[test]
+    fn parses_rescue_with_bool_patterns() {
+        assert_eq!(
+            parse_statements("rescue(false) do\nend"),
+            [
+                s_rescue(p_bool(false), vec![])
+            ]
+        )
+    }
+
+    #[test]
+    fn parses_rescue_with_map_patterns() {
+        assert_eq!(
+            parse_statements("rescue({ 1 => y }) do\nend"),
+            [
+                s_rescue(
+                    p_map(vec![(p_number(1, 1), p_ident("y"))]),
+                    vec![]
+                )
+            ]
         )
     }
 }
