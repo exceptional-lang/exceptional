@@ -67,8 +67,8 @@ pub mod test_helpers {
         Statement::Call(name.to_owned(), args)
     }
 
-    pub fn s_raise(args: Vec<Expression>) -> Statement {
-        Statement::Raise(args)
+    pub fn s_raise(exp: Expression) -> Statement {
+        Statement::Raise(exp)
     }
 
     pub fn s_rescue(map: Pattern, statements: Vec<Statement>) -> Statement {
@@ -294,8 +294,8 @@ mod test_statements {
     #[test]
     fn parses_raise_statements() {
         assert_eq!(
-            parse_statements("raise(1, \"a\")"),
-            [s_raise(vec![e_literal(l_number(1, 1)), e_literal(l_string("a"))])]
+            parse_statements("raise(1)"),
+            [s_raise(e_literal(l_number(1, 1)))]
         )
     }
 

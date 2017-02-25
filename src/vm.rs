@@ -22,8 +22,9 @@ pub enum Instruction {
     Assign(String),
     Call(usize),
     MakeMap(usize),
+    Rescue(Rc<Pattern>, Rc<InstructionSequence>),
+    Raise,
     Nop,
-    // Set(String, Value),
 }
 
 pub type InstructionSequence = Vec<Instruction>;
@@ -127,7 +128,20 @@ fn compile_statement<'a>(statement: &'a Statement) -> InstructionSequence {
             instructions.push(Instruction::Call(expressions.len()));
             instructions
         },
-         _ => panic!("not implemented"),
+        &Statement::Rescue(ref pattern, ref statements) => {
+            let mut instructions = statements
+                .iter()
+                .flat_map(|stmt| compile_statement(stmt))
+                .collect::<InstructionSequence>();
+
+            vec![Instruction::Rescue(Rc::new(pattern.clone()), Rc::new(instructions))]
+        },
+        &Statement::Raise(ref expression) => {
+            let mut instructions = compile_expression(expression);
+            instructions.push(Instruction::Raise);
+            instructions
+        },
+        // s => panic!("not implemented: {:?}", s),
     }
 }
 
@@ -252,6 +266,14 @@ impl Vm {
                     }
                     self.stack.push(Value::Map(map))
                 },
+                Instruction::Rescue(ref pattern, ref iseq) => {
+                    self.frames.last_mut().unwrap().exception_handlers.push(
+                        ExceptionHandler::new(pattern.clone(), iseq.clone())
+                    )
+                },
+                Instruction::Raise => {
+
+                }
                 _ => panic!("unknown instruction {:?}", instruction),
             };
         };
@@ -352,21 +374,36 @@ mod test_binding_map {
 #[cfg(test)]
 mod test_vm {
     use super::*;
-    use ast::*;
     use std::rc::Rc;
     use grammar::test_helpers::*;
 
     #[test]
     fn test_new_populates_basic_instructions() {
-        let vm = Vm::new("let a = 1\nlet b = \"\"\n");
+        let source = "let a = 1
+        let b = \"\"
+        rescue(id) do
+            b = 1
+        end
+        raise(\"a\")
+        ";
+        let vm = Vm::new(source);
         assert_eq!(
+            vm.instructions,
             Rc::new(vec![
-                Instruction::Push(Literal::Number(build_ratio(1, 1))),
+                Instruction::Push(l_number(1, 1)),
                 Instruction::LocalAssign("a".to_owned()),
-                Instruction::Push(Literal::CharString("".to_string())),
+                Instruction::Push(l_string("")),
                 Instruction::LocalAssign("b".to_owned()),
-            ]),
-            vm.instructions
+                Instruction::Rescue(
+                    Rc::new(p_ident("id")),
+                    Rc::new(vec![
+                        Instruction::Push(l_number(1, 1)),
+                        Instruction::Assign("b".to_owned()),
+                    ])
+                ),
+                Instruction::Push(l_string("a")),
+                Instruction::Raise,
+            ])
         )
     }
 
@@ -471,7 +508,22 @@ mod test_vm {
     fn test_function_with_wrong_arg_count() {
         let source =
             "let x = def(a, b) do
-            end\
+            end
+            x(1)";
+
+        let mut vm = Vm::new(source);
+        vm.run();
+    }
+
+    #[test]
+    fn test_basic_rescue() {
+        let source =
+            "let a = \"\"
+            rescue(id) do
+            end
+            let x = def(b) do
+                raise(b)
+            end
             x(1)";
 
         let mut vm = Vm::new(source);

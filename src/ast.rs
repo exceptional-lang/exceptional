@@ -14,7 +14,7 @@ pub enum Literal {
 pub enum Statement {
     Assign(bool, String, Box<Expression>),
     Call(String, Vec<Expression>),
-    Raise(Vec<Expression>),
+    Raise(Expression),
     Rescue(Pattern, Box<Vec<Statement>>),
 }
 

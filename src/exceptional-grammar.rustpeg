@@ -27,8 +27,8 @@ callStatement -> Statement
     }
 
 raiseStatement -> Statement
-  = raise lparen args:callArguments rparen {
-      Statement::Raise(args)
+  = raise lparen exp:expression rparen {
+      Statement::Raise(exp)
     }
 
 rescueStatement -> Statement
