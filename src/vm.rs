@@ -88,10 +88,17 @@ pub struct Closure {
 }
 
 impl Closure {
-    pub fn new(instructions: InstructionSequence, parent_bindings: &BindingMap) -> Closure {
+    pub fn new(instructions: Rc<InstructionSequence>, parent_bindings: &BindingMap) -> Closure {
         Closure {
-            instructions: Rc::new(instructions),
+            instructions: instructions,
             parent_bindings: parent_bindings.clone(),
+        }
+    }
+
+    pub fn blank() -> Closure {
+        Closure {
+            instructions: Rc::new(vec![]),
+            parent_bindings: BindingMap::new(None),
         }
     }
 }
@@ -99,16 +106,16 @@ impl Closure {
 #[derive(Clone, Eq, Debug, PartialEq)]
 struct ExceptionHandler {
     pattern: Rc<Pattern>,
-    instructions: Rc<InstructionSequence>,
+    closure: Closure,
 }
 
 type MatchedBindings = Option<BTreeMap<String, Value>>;
 
 impl ExceptionHandler {
-    pub fn new(pattern: Rc<Pattern>, instructions: Rc<InstructionSequence>) -> ExceptionHandler {
+    pub fn new(pattern: Rc<Pattern>, closure: Closure) -> ExceptionHandler {
         ExceptionHandler {
             pattern: pattern,
-            instructions: instructions,
+            closure: closure,
         }
     }
     pub fn matches(&self, value: Value) -> MatchedBindings {
@@ -326,10 +333,13 @@ impl Vm {
             let insn_result = Vm::next_instruction(self);
             let instruction;
 
-            match insn_result {
-                Some(i) => instruction = i,
-                None => break,
-            }
+            instruction = if let Some(i) = insn_result {
+                println!("next instruction: {:?}", i);
+                i
+            } else {
+                println!("instruction not found, terminating");
+                break;
+            };
 
             match instruction {
                 Instruction::Push(ref value) => {
@@ -368,9 +378,7 @@ impl Vm {
                     for arg_name in closure_args.iter().rev() {
                         map.local_assign(arg_name, args.pop().unwrap());
                     }
-                    self.frames.push(Frame::new(map));
-                    self.instructions = closure.instructions.clone();
-                    self.pc = 0;
+                    self.reset_instructions(closure.instructions, map)
                 }
                 Instruction::Fetch(ref binding_name) => {
                     let value = self.frames.last().unwrap().bindings.fetch(binding_name).unwrap();
@@ -388,27 +396,68 @@ impl Vm {
                     self.stack.push(Value::Map(map))
                 }
                 Instruction::Rescue(ref pattern, ref iseq) => {
+                    let top_bindings = {
+                        &mut self.frames.last_mut().unwrap().bindings.clone()
+                    };
+                    let closure = Closure::new(iseq.clone(), top_bindings);
                     self.frames
                         .last_mut()
                         .unwrap()
                         .exception_handlers
-                        .push(ExceptionHandler::new(pattern.clone(), iseq.clone()))
+                        .push(ExceptionHandler::new(pattern.clone(), closure))
                 }
                 Instruction::Raise => {
                     let raised_value = self.stack.pop().unwrap();
-                    for frame in self.frames.iter().rev() {
-                        let handlers = frame.exception_handlers
-                            .iter()
-                            .filter_map(|handler| match handler.matches(raised_value.clone()) {
-                                Some(bindings) => Some((handler, bindings)),
-                                None => None,
-                            });
-                        println!("{:?}", handlers);
+                    let matched_handler = self.frames
+                        .iter()
+                        .rev()
+                        .filter_map(|frame| {
+                            let handlers = frame.exception_handlers
+                                .iter()
+                                .filter_map(|handler| {
+                                    match handler.matches(raised_value.clone()) {
+                                        Some(bindings) => Some((handler, bindings)),
+                                        None => None,
+                                    }
+                                })
+                                .collect::<Vec<_>>();
+
+                            if handlers.is_empty() {
+                                return None;
+                            }
+
+                            println!("found handlers: {:?}", handlers.len());
+                            Some(handlers.first().unwrap().clone())
+                        })
+                        .take(1)
+                        .collect::<Vec<_>>()
+                        .first()
+                        .map(|&(ref handler, ref bindings)| {
+                            let mut map = BindingMap::new(Some(&handler.closure.parent_bindings));
+                            for (key, value) in bindings.iter() {
+                                map.local_assign(key, value.to_owned());
+                            }
+                            println!("bindings: {:?}", bindings);
+                            (handler.closure.instructions.clone(), map)
+                        });
+
+                    if let Some((instructions, map)) = matched_handler {
+                        println!("insns: {:?}", instructions);
+                        self.reset_instructions(instructions, map);
+                    } else {
+                        println!("Uncaught exception ignored: {:?}", raised_value);
                     }
                 }
                 _ => panic!("unknown instruction {:?}", instruction),
             };
         }
+    }
+
+    fn reset_instructions(&mut self, instructions: Rc<InstructionSequence>, map: BindingMap) {
+        self.frames.push(Frame::new(map));
+        self.instructions = instructions.clone();
+        self.pc = 0;
+        println!("instructions have been reset!");
     }
 
     fn next_instruction(vm: &mut Vm) -> Option<Instruction> {
@@ -428,7 +477,7 @@ impl Vm {
             &Literal::CharString(ref str) => Value::CharString(str.to_string()),
             &Literal::Fn(ref args, ref statements) => {
                 // Statements should be compiled ahead of time
-                let closure = Closure::new(compile(&statements), top_bindings);
+                let closure = Closure::new(Rc::new(compile(&statements)), top_bindings);
                 Value::Closure(args.clone(), closure)
             }
             _ => panic!("not implemented"),
@@ -445,7 +494,7 @@ mod test_exception_handler {
     #[test]
     fn matches_numbers() {
         let handler = ExceptionHandler::new(Rc::new(Pattern::Number(build_ratio(1, 1))),
-                                            Rc::new(vec![]));
+                                            Closure::blank());
         assert_eq!(Some(BTreeMap::new()),
                    handler.matches(Value::Number(build_ratio(1, 1))));
         assert_eq!(None, handler.matches(Value::Number(build_ratio(2, 1))));
@@ -455,7 +504,7 @@ mod test_exception_handler {
     #[test]
     fn matches_strings() {
         let handler = ExceptionHandler::new(Rc::new(Pattern::CharString("toto".to_owned())),
-                                            Rc::new(vec![]));
+                                            Closure::blank());
         assert_eq!(Some(BTreeMap::new()),
                    handler.matches(Value::CharString("toto".to_owned())));
         assert_eq!(None, handler.matches(Value::CharString("titi".to_owned())));
@@ -464,7 +513,7 @@ mod test_exception_handler {
 
     #[test]
     fn matches_bools() {
-        let handler = ExceptionHandler::new(Rc::new(Pattern::Boolean(false)), Rc::new(vec![]));
+        let handler = ExceptionHandler::new(Rc::new(Pattern::Boolean(false)), Closure::blank());
         assert_eq!(Some(BTreeMap::new()),
                    handler.matches(Value::Boolean(false)));
         assert_eq!(None, handler.matches(Value::Boolean(true)));
@@ -478,7 +527,7 @@ mod test_exception_handler {
                                                                                          1)),
                                                              Pattern::Identifier("toto"
                                                                  .to_owned()))])),
-                                  Rc::new(vec![]));
+                                  Closure::blank());
         assert_eq!(Some(vec![("toto".to_owned(), Value::CharString("titi".to_owned()))]
                        .into_iter()
                        .collect()),
@@ -507,7 +556,7 @@ mod test_exception_handler {
                                                                                          1)),
                                                              Pattern::Identifier("toto"
                                                                  .to_owned()))])),
-                                  Rc::new(vec![]));
+                                  Closure::blank());
         assert_eq!(Some(vec![("toto".to_owned(), Value::CharString("titi".to_owned()))]
                        .into_iter()
                        .collect()),
@@ -541,7 +590,7 @@ mod test_exception_handler {
                             Pattern::Identifier("toto".to_owned())
                         )
                     ]))])),
-                                  Rc::new(vec![]));
+                                  Closure::blank());
         assert_eq!(Some(vec![("toto".to_owned(), Value::CharString("titi".to_owned()))]
                        .into_iter()
                        .collect()),
@@ -561,7 +610,7 @@ mod test_exception_handler {
     #[test]
     fn matches_identifier() {
         let handler = ExceptionHandler::new(Rc::new(Pattern::Identifier("toto".to_owned())),
-                                            Rc::new(vec![]));
+                                            Closure::blank());
         assert_eq!(Some(vec![("toto".to_owned(), Value::CharString("titi".to_owned()))]
                        .into_iter()
                        .collect()),
@@ -639,12 +688,12 @@ mod test_vm {
     #[test]
     fn test_new_populates_basic_instructions() {
         let source = "let a = 1
-        let b = \"\"
-        rescue(id) do
-            b = 1
-        end
-        raise(\"a\")
-        ";
+            let b = \"\"
+            rescue(id) do
+                \
+                      b = 1
+            end
+            raise(\"a\")";
         let vm = Vm::new(source);
         assert_eq!(vm.instructions,
                    Rc::new(vec![Instruction::Push(l_number(1, 1)),
@@ -662,10 +711,10 @@ mod test_vm {
 
     #[test]
     fn test_new_populates_function_instructions() {
-        let source =
-            "\
-            let a = { 1 => 2 }
-            let b = def(x) doendb(1)";
+        let source = "let a = { 1 => 2 }
+            let b = def(x) do
+            end
+            b(1)";
         let vm = Vm::new(source);
         assert_eq!(Rc::new(vec![Instruction::Push(Literal::Number(build_ratio(1, 1))),
                                 Instruction::Push(Literal::Number(build_ratio(2, 1))),
@@ -713,8 +762,7 @@ mod test_vm {
 
     #[test]
     fn test_function_call_with_args() {
-        let source = "
-            let a = \"\"
+        let source = "let a = \"\"
             let b = \"\"
             let x = def(c, d) do
               a = c
@@ -733,10 +781,8 @@ mod test_vm {
     #[test]
     #[should_panic(expected="expected a closure")]
     fn test_calling_non_function() {
-        let source = "
-        let x = \"\"
-        x()";
-
+        let source = "let x = \"\"
+            x()";
         let mut vm = Vm::new(source);
         vm.run();
     }
@@ -744,8 +790,7 @@ mod test_vm {
     #[test]
     #[should_panic(expected="wrong number of arguments")]
     fn test_function_with_wrong_arg_count() {
-        let source = "
-            let x = def(a, b) do
+        let source = "let x = def(a, b) do
             end
             x(1)";
 
