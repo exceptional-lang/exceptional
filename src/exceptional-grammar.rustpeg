@@ -1,6 +1,7 @@
 use ast::{Expression, Statement, Literal, Pattern};
 use num::BigInt;
 use num::rational::{Ratio};
+use num::rational::BigRational;
 
 #[pub]
 statements -> Vec<Statement>
@@ -80,26 +81,34 @@ literal -> Literal
   / map
 
 number -> Literal
-  = digits:digits __ {
-      Literal::Number(Ratio::from_integer(BigInt::parse_bytes(digits.as_bytes(), 10).unwrap()))
+  = ratio:rawRatio {
+      Literal::Number(ratio)
+    }
+
+rawRatio -> BigRational
+  = digits:digits {
+      Ratio::from_integer(BigInt::parse_bytes(digits.as_bytes(), 10).unwrap())
     }
 
 digits -> String
   /* = c:$([0-9]+) "." d:$([0-9]+) { c.parse().unwrap() } */
-  = c:$([0-9]+) { c.parse().unwrap() }
+  = c:$([0-9]+) __ { c.parse().unwrap() }
 
 charString -> Literal
-  = string:string { Literal::CharString(string) }
+  = string:rawString { Literal::CharString(string) }
 
-string -> String
+rawString -> String
   = '"' s:doubleQuotedCharacter* '"' __ { s.into_iter().collect() }
 
 doubleQuotedCharacter -> char
   = !('"' / "\\" / eolChar) c:$. { c.chars().next().unwrap() }
 
 boolean -> Literal
-  = b:"false" __ { Literal::Boolean(false) }
-  / b:"true" __ { Literal::Boolean(true) }
+  = b:rawBoolean { Literal::Boolean(b) }
+
+rawBoolean -> bool
+  = b:"false" __ { false }
+  / b:"true" __ { true }
 
 functionDefinition -> Expression
   = "def" lparen args:functionArgumentList rparen block:block {
@@ -134,39 +143,34 @@ pattern -> Pattern
   / booleanPattern
   / identifierPattern
 
+patternKey -> Pattern
+  = numberPattern
+  / charStringPattern
+  / booleanPattern
+
 mapPattern -> Pattern
   = lbracket pairs:patternPairList rbracket {
       Pattern::Map(pairs)
     }
 
 patternPairList -> Vec<(Pattern, Pattern)>
-  = pairs:(key:pattern fatArrow value:pattern { (key, value) } )* {
+  = pairs:(key:patternKey fatArrow value:pattern { (key, value) } )* {
       pairs
     }
 
-
 numberPattern -> Pattern
-  = number:number {
-      match number {
-        Literal::Number(n) => Pattern::Number(n),
-        _ => panic!("unexpected type"),
-      }
+  = number:rawRatio {
+      Pattern::Number(number)
     }
 
 charStringPattern -> Pattern
-  = string:charString {
-      match string {
-        Literal::CharString(s) => Pattern::CharString(s),
-        _ => panic!("unexpected type"),
-      }
+  = string:rawString {
+      Pattern::CharString(string)
     }
 
 booleanPattern -> Pattern
-  = bool:boolean {
-      match bool {
-        Literal::Boolean(b) => Pattern::Boolean(b),
-        _ => panic!("unexpected type"),
-      }
+  = bool:rawBoolean {
+      Pattern::Boolean(bool)
     }
 
 identifierPattern -> Pattern
