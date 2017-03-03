@@ -1,4 +1,4 @@
-use num::rational::{BigRational};
+use num::rational::BigRational;
 
 #[derive(Clone, Eq, Debug, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Literal {
@@ -6,7 +6,7 @@ pub enum Literal {
     CharString(String),
     Boolean(bool),
     Map(Vec<(Expression, Expression)>),
-    Fn(Box<Vec<String>>, Box<Vec<Statement>>),
+    Fn(Box<Vec<String>>, Box<Vec<Statement>>), 
     // Vec(Vec<Value>),
 }
 

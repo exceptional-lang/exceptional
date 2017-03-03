@@ -9,6 +9,6 @@ fn main() {
         Ok(v) => {
             println!("got value {:?}", v);
         }
-        Err(err) => panic!("parse error: {:?}", err)
+        Err(err) => panic!("parse error: {:?}", err),
     }
 }
