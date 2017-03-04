@@ -408,48 +408,52 @@ impl Vm {
                 }
                 Instruction::Raise => {
                     let raised_value = self.stack.pop().unwrap();
-                    let matched_handler = self.frames
-                        .iter()
-                        .rev()
-                        .filter_map(|frame| {
-                            let handlers = frame.exception_handlers
-                                .iter()
-                                .filter_map(|handler| {
-                                    match handler.matches(raised_value.clone()) {
-                                        Some(bindings) => Some((handler, bindings)),
-                                        None => None,
-                                    }
-                                })
-                                .collect::<Vec<_>>();
-
-                            if handlers.is_empty() {
-                                return None;
-                            }
-
-                            println!("found handlers: {:?}", handlers.len());
-                            Some(handlers.first().unwrap().clone())
-                        })
-                        .take(1)
-                        .collect::<Vec<_>>()
-                        .first()
-                        .map(|&(ref handler, ref bindings)| {
-                            let mut map = BindingMap::new(Some(&handler.closure.parent_bindings));
-                            for (key, value) in bindings.iter() {
-                                map.local_assign(key, value.to_owned());
-                            }
-                            println!("bindings: {:?}", bindings);
-                            (handler.closure.instructions.clone(), map)
-                        });
-
-                    if let Some((instructions, map)) = matched_handler {
-                        println!("insns: {:?}", instructions);
-                        self.reset_instructions(instructions, map);
-                    } else {
-                        println!("Uncaught exception ignored: {:?}", raised_value);
-                    }
+                    self.raise(raised_value);
                 }
                 _ => panic!("unknown instruction {:?}", instruction),
             };
+        }
+    }
+
+    fn raise(&mut self, value: Value) {
+        let matched_handler = self.frames
+            .iter()
+            .rev()
+            .filter_map(|frame| {
+                let handlers = frame.exception_handlers
+                    .iter()
+                    .filter_map(|handler| {
+                        match handler.matches(value.clone()) {
+                            Some(bindings) => Some((handler, bindings)),
+                            None => None,
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                if handlers.is_empty() {
+                    return None;
+                }
+
+                println!("found handlers: {:?}", handlers.len());
+                Some(handlers.first().unwrap().clone())
+            })
+            .take(1)
+            .collect::<Vec<_>>()
+            .first()
+            .map(|&(ref handler, ref bindings)| {
+                let mut map = BindingMap::new(Some(&handler.closure.parent_bindings));
+                for (key, value) in bindings.iter() {
+                    map.local_assign(key, value.to_owned());
+                }
+                println!("bindings: {:?}", bindings);
+                (handler.closure.instructions.clone(), map)
+            });
+
+        if let Some((instructions, map)) = matched_handler {
+            println!("insns: {:?}", instructions);
+            self.reset_instructions(instructions, map);
+        } else {
+            println!("Uncaught exception ignored: {:?}", value);
         }
     }
 
