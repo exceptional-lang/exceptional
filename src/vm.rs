@@ -1,5 +1,6 @@
 use grammar::*;
 use ast::*;
+use test_helpers::*;
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
 use std::rc::Rc;
@@ -25,6 +26,10 @@ pub enum Instruction {
     MakeMap(usize),
     Rescue(Rc<Pattern>, Rc<InstructionSequence>),
     Raise,
+    Add,
+    Sub,
+    Mul,
+    Div,
     Nop,
 }
 
@@ -251,7 +256,7 @@ fn compile_statement<'a>(statement: &'a Statement) -> InstructionSequence {
             instructions
         }
         &Statement::Rescue(ref pattern, ref statements) => {
-            let mut instructions = statements.iter()
+            let instructions = statements.iter()
                 .flat_map(|stmt| compile_statement(stmt))
                 .collect::<InstructionSequence>();
 
@@ -288,9 +293,22 @@ fn compile_expression<'a>(expression: &'a Expression) -> InstructionSequence {
         &Expression::Identifier(ref binding_name) => {
             vec![Instruction::Fetch(binding_name.to_owned())]
         }
-        _ => panic!("not implemented"),
-        // &Expression::Identifier(_) => { vec![] },
-        // &Expression::BinOp(_, _, _) => { vec![] },
+        &Expression::BinOp(ref op, ref left, ref right) => {
+            let mut instructions = compile_expression(&*left);
+            instructions.extend(compile_expression(&*right).iter().cloned());
+            instructions.push(compile_binop(&*op));
+            instructions
+        }
+    }
+}
+
+fn compile_binop(op: &str) -> Instruction {
+    match op {
+        "+" => Instruction::Add,
+        "-" => Instruction::Sub,
+        "/" => Instruction::Div,
+        "*" => Instruction::Mul,
+        _ => panic!("Unsupported binary operation: {:?}", op),
     }
 }
 
@@ -316,10 +334,10 @@ impl Vm {
     pub fn new(source: &str) -> Vm {
         let stmts = statements(source);
         let instructions = compile(&stmts.unwrap());
-        let mut map = BindingMap::new(None);
-        let mut frame = Frame::new(map);
+        let map = BindingMap::new(None);
+        let frame = Frame::new(map);
 
-        let mut vm = Vm {
+        let vm = Vm {
             instructions: Rc::new(instructions),
             pc: 0,
             stack: Vec::new(),
@@ -410,8 +428,28 @@ impl Vm {
                     let raised_value = self.stack.pop().unwrap();
                     self.raise(raised_value);
                 }
+                Instruction::Add => {
+                    let right = self.stack.pop().unwrap();
+                    let left = self.stack.pop().unwrap();
+
+                    let result = Vm::add(left, right);
+                    self.stack.push(result);
+                }
                 _ => panic!("unknown instruction {:?}", instruction),
             };
+        }
+    }
+
+    fn add(left: Value, right: Value) -> Value {
+        match (left, right) {
+            (Value::Number(lratio), Value::Number(rratio)) => Value::Number(lratio + rratio),
+            (Value::CharString(lstr), Value::CharString(rstr)) => Value::CharString(lstr + &rstr),
+            (Value::Closure(_, _), Value::Closure(_, _)) => {
+                // TODO: Raise Exception
+                panic!("Addition of closures is not supported");
+            }
+            (Value::Boolean(lbool), Value::Boolean(rbool)) => Value::Boolean(lbool || rbool),
+            _ => panic!("not supported"),
         }
     }
 
@@ -422,11 +460,9 @@ impl Vm {
             .filter_map(|frame| {
                 let handlers = frame.exception_handlers
                     .iter()
-                    .filter_map(|handler| {
-                        match handler.matches(value.clone()) {
-                            Some(bindings) => Some((handler, bindings)),
-                            None => None,
-                        }
+                    .filter_map(|handler| match handler.matches(value.clone()) {
+                        Some(bindings) => Some((handler, bindings)),
+                        None => None,
                     })
                     .collect::<Vec<_>>();
 
@@ -493,35 +529,31 @@ impl Vm {
 mod test_exception_handler {
     use super::*;
     use std::rc::Rc;
-    use grammar::test_helpers::*;
 
     #[test]
     fn matches_numbers() {
         let handler = ExceptionHandler::new(Rc::new(Pattern::Number(build_ratio(1, 1))),
                                             Closure::blank());
-        assert_eq!(Some(BTreeMap::new()),
-                   handler.matches(Value::Number(build_ratio(1, 1))));
-        assert_eq!(None, handler.matches(Value::Number(build_ratio(2, 1))));
-        assert_eq!(None, handler.matches(Value::CharString("toto".to_owned())))
+        assert_eq!(Some(BTreeMap::new()), handler.matches(v_number(1, 1)));
+        assert_eq!(None, handler.matches(v_number(2, 1)));
+        assert_eq!(None, handler.matches(v_string("toto")))
     }
 
     #[test]
     fn matches_strings() {
         let handler = ExceptionHandler::new(Rc::new(Pattern::CharString("toto".to_owned())),
                                             Closure::blank());
-        assert_eq!(Some(BTreeMap::new()),
-                   handler.matches(Value::CharString("toto".to_owned())));
-        assert_eq!(None, handler.matches(Value::CharString("titi".to_owned())));
-        assert_eq!(None, handler.matches(Value::Number(build_ratio(1, 1))))
+        assert_eq!(Some(BTreeMap::new()), handler.matches(v_string("toto")));
+        assert_eq!(None, handler.matches(v_string("titi")));
+        assert_eq!(None, handler.matches(v_number(1, 1)))
     }
 
     #[test]
     fn matches_bools() {
         let handler = ExceptionHandler::new(Rc::new(Pattern::Boolean(false)), Closure::blank());
-        assert_eq!(Some(BTreeMap::new()),
-                   handler.matches(Value::Boolean(false)));
-        assert_eq!(None, handler.matches(Value::Boolean(true)));
-        assert_eq!(None, handler.matches(Value::CharString("toto".to_owned())));
+        assert_eq!(Some(BTreeMap::new()), handler.matches(v_bool(false)));
+        assert_eq!(None, handler.matches(v_bool(true)));
+        assert_eq!(None, handler.matches(v_string("toto")));
     }
 
     #[test]
@@ -532,21 +564,13 @@ mod test_exception_handler {
                                                              Pattern::Identifier("toto"
                                                                  .to_owned()))])),
                                   Closure::blank());
-        assert_eq!(Some(vec![("toto".to_owned(), Value::CharString("titi".to_owned()))]
+        assert_eq!(Some(vec![("toto".to_owned(), v_string("titi"))]
                        .into_iter()
                        .collect()),
-                   handler.matches(Value::Map(vec![(Rc::new(Value::Number(build_ratio(1, 1))),
-                                                    Rc::new(Value::CharString("titi"
-                                                        .to_owned())))]
-                       .into_iter()
-                       .collect())));
+                   handler.matches(v_map(vec![(v_number(1, 1), v_string("titi"))])));
         assert_eq!(None,
-                   handler.matches(Value::Map(vec![(Rc::new(Value::CharString("titi"
-                                                        .to_owned())),
-                                                    Rc::new(Value::Number(build_ratio(2, 1))))]
-                       .into_iter()
-                       .collect())));
-        assert_eq!(None, handler.matches(Value::Boolean(false)));
+                   handler.matches(v_map(vec![(v_string("titi"), v_number(2, 1))])));
+        assert_eq!(None, handler.matches(v_bool(false)));
     }
 
     #[test]
@@ -561,26 +585,14 @@ mod test_exception_handler {
                                                              Pattern::Identifier("toto"
                                                                  .to_owned()))])),
                                   Closure::blank());
-        assert_eq!(Some(vec![("toto".to_owned(), Value::CharString("titi".to_owned()))]
+        assert_eq!(Some(vec![("toto".to_owned(), v_string("titi"))]
                        .into_iter()
                        .collect()),
-                   handler.matches(Value::Map(vec![(Rc::new(Value::Number(build_ratio(1, 1))),
-                                                    Rc::new(Value::CharString("titi"
-                                                        .to_owned()))),
-                                                   (Rc::new(Value::Number(build_ratio(2, 1))),
-                                                    Rc::new(Value::CharString("titi"
-                                                        .to_owned())))]
-                       .into_iter()
-                       .collect())));
+                   handler.matches(v_map(vec![(v_number(1, 1), v_string("titi")),
+                                              (v_number(2, 1), v_string("titi"))])));
         assert_eq!(None,
-                   handler.matches(Value::Map(vec![(Rc::new(Value::Number(build_ratio(1, 1))),
-                                                    Rc::new(Value::CharString("titi"
-                                                        .to_owned()))),
-                                                   (Rc::new(Value::Number(build_ratio(2, 1))),
-                                                    Rc::new(Value::CharString("foo"
-                                                        .to_owned())))]
-                       .into_iter()
-                       .collect())));
+                   handler.matches(v_map(vec![(v_number(1, 1), v_string("titi")),
+                                              (v_number(2, 1), v_string("foo"))])));
     }
 
     #[test]
@@ -595,34 +607,25 @@ mod test_exception_handler {
                         )
                     ]))])),
                                   Closure::blank());
-        assert_eq!(Some(vec![("toto".to_owned(), Value::CharString("titi".to_owned()))]
+        assert_eq!(Some(vec![("toto".to_owned(), v_string("titi"))]
                        .into_iter()
                        .collect()),
-                   handler.matches(Value::Map(vec![(Rc::new(Value::Number(build_ratio(1, 1))),
-                                                    Rc::new(Value::Map(vec![
-                                (
-                                    Rc::new(Value::Number(build_ratio(2, 1))),
-                                    Rc::new(Value::CharString("titi".to_owned()))
-                                )
-                            ]
-                                                        .into_iter()
-                                                        .collect())))]
-                       .into_iter()
-                       .collect())));
+                   handler.matches(v_map(vec![(v_number(1, 1),
+                                               v_map(vec![(v_number(2, 1), v_string("titi"))]))])));
     }
 
     #[test]
     fn matches_identifier() {
         let handler = ExceptionHandler::new(Rc::new(Pattern::Identifier("toto".to_owned())),
                                             Closure::blank());
-        assert_eq!(Some(vec![("toto".to_owned(), Value::CharString("titi".to_owned()))]
+        assert_eq!(Some(vec![("toto".to_owned(), v_string("titi"))]
                        .into_iter()
                        .collect()),
-                   handler.matches(Value::CharString("titi".to_owned())));
-        assert_eq!(Some(vec![("toto".to_owned(), Value::Number(build_ratio(1, 1)))]
+                   handler.matches(v_string("titi")));
+        assert_eq!(Some(vec![("toto".to_owned(), v_number(1, 1))]
                        .into_iter()
                        .collect()),
-                   handler.matches(Value::Number(build_ratio(1, 1))))
+                   handler.matches(v_number(1, 1)))
     }
 }
 
@@ -641,44 +644,41 @@ mod test_binding_map {
 
     #[test]
     fn test_has_binding() {
-        let mut map = BindingMap::new(None);
+        let map = BindingMap::new(None);
         assert_eq!(false, map.has_binding(&"toto".to_owned()))
     }
 
     #[test]
     fn test_local_assign() {
         let mut map = BindingMap::new(None);
-        map.local_assign(&"toto".to_owned(), Value::CharString("value".to_owned()));
+        map.local_assign(&"toto".to_owned(), v_string("value"));
         assert!(map.has_binding(&"toto".to_owned()))
     }
 
     #[test]
     fn test_fetch() {
         let mut map = BindingMap::new(None);
-        map.local_assign(&"toto".to_owned(), Value::CharString("value".to_owned()));
-        assert_eq!(Some(Value::CharString("value".to_owned())),
-                   map.fetch(&"toto".to_owned()))
+        map.local_assign(&"toto".to_owned(), v_string("value"));
+        assert_eq!(Some(v_string("value")), map.fetch(&"toto".to_owned()))
     }
 
     #[test]
     fn test_delegates_fetch() {
         let mut parent = BindingMap::new(None);
-        parent.local_assign(&"toto".to_owned(), Value::CharString("value".to_owned()));
+        parent.local_assign(&"toto".to_owned(), v_string("value"));
         let map = BindingMap::new(Some(&parent));
 
-        assert_eq!(Some(Value::CharString("value".to_owned())),
-                   map.fetch(&"toto".to_owned()))
+        assert_eq!(Some(v_string("value")), map.fetch(&"toto".to_owned()))
     }
 
     #[test]
     fn test_delegates_assign() {
         let mut parent = BindingMap::new(None);
-        parent.local_assign(&"toto".to_owned(), Value::CharString("value".to_owned()));
+        parent.local_assign(&"toto".to_owned(), v_string("value"));
         let mut map = BindingMap::new(Some(&parent));
-        map.assign(&"toto".to_owned(),
-                   Value::CharString("new_value".to_owned()));
+        map.assign(&"toto".to_owned(), v_string("new_value"));
 
-        assert_eq!(Some(Value::CharString("new_value".to_owned())),
+        assert_eq!(Some(v_string("new_value")),
                    parent.fetch(&"toto".to_owned()))
     }
 }
@@ -687,7 +687,6 @@ mod test_binding_map {
 mod test_vm {
     use super::*;
     use std::rc::Rc;
-    use grammar::test_helpers::*;
 
     #[test]
     fn test_new_populates_basic_instructions() {
@@ -695,22 +694,24 @@ mod test_vm {
             let b = \"\"
             rescue(id) do
                 \
-                      b = 1
+                      b = 1 + 2 * 1
             end
             raise(\"a\")";
         let vm = Vm::new(source);
-        assert_eq!(vm.instructions,
-                   Rc::new(vec![Instruction::Push(l_number(1, 1)),
-                                Instruction::LocalAssign("a".to_owned()),
-                                Instruction::Push(l_string("")),
-                                Instruction::LocalAssign("b".to_owned()),
-                                Instruction::Rescue(Rc::new(p_ident("id")),
-                                                    Rc::new(vec![
-                        Instruction::Push(l_number(1, 1)),
-                        Instruction::Assign("b".to_owned()),
-                    ])),
-                                Instruction::Push(l_string("a")),
-                                Instruction::Raise]))
+        let expected = Rc::new(vec![Instruction::Push(l_number(1, 1)),
+                         Instruction::LocalAssign("a".to_owned()),
+                         Instruction::Push(l_string("")),
+                         Instruction::LocalAssign("b".to_owned()),
+                         Instruction::Rescue(Rc::new(p_ident("id")),
+                                             Rc::new(vec![Instruction::Push(l_number(1, 1)),
+                                                          Instruction::Push(l_number(2, 1)),
+                                                          Instruction::Push(l_number(1, 1)),
+                                                          Instruction::Mul,
+                                                          Instruction::Add,
+                                                          Instruction::Assign("b".to_owned())])),
+                         Instruction::Push(l_string("a")),
+                         Instruction::Raise]);
+        assert_eq!(vm.instructions, expected)
     }
 
     #[test]
@@ -738,15 +739,10 @@ mod test_vm {
         let mut vm = Vm::new("let a = 1\
         let b = { \"a\" => 1 }");
         vm.run();
-        assert_eq!(Value::Number(build_ratio(1, 1)),
+        assert_eq!(v_number(1, 1),
                    vm.frames.last().unwrap().bindings.fetch(&"a".to_owned()).unwrap().to_owned());
-        let expected_map = {
-            let mut map = BTreeMap::new();
-            map.insert(Rc::new(Value::CharString("a".to_owned())),
-                       Rc::new(Value::Number(build_ratio(1, 1))));
-            map
-        };
-        assert_eq!(Value::Map(expected_map),
+        let expected_map = v_map(vec![(v_string("a"), v_number(1, 1))]);
+        assert_eq!(expected_map,
                    vm.frames.last().unwrap().bindings.fetch(&"b".to_owned()).unwrap().to_owned())
     }
 
@@ -760,7 +756,7 @@ mod test_vm {
 
         let mut vm = Vm::new(source);
         vm.run();
-        assert_eq!(Value::Number(build_ratio(1, 1)),
+        assert_eq!(v_number(1, 1),
                    vm.frames.last().unwrap().bindings.fetch(&"a".to_owned()).unwrap().to_owned())
     }
 
@@ -776,9 +772,9 @@ mod test_vm {
 
         let mut vm = Vm::new(source);
         vm.run();
-        assert_eq!(Value::Number(build_ratio(1, 1)),
+        assert_eq!(v_number(1, 1),
                    vm.frames.last().unwrap().bindings.fetch(&"a".to_owned()).unwrap().to_owned());
-        assert_eq!(Value::Number(build_ratio(2, 1)),
+        assert_eq!(v_number(2, 1),
                    vm.frames.last().unwrap().bindings.fetch(&"b".to_owned()).unwrap().to_owned())
     }
 
@@ -816,7 +812,68 @@ mod test_vm {
 
         let mut vm = Vm::new(source);
         vm.run();
-        assert_eq!(Value::Number(build_ratio(1, 1)),
+        assert_eq!(v_number(1, 1),
                    vm.frames.last().unwrap().bindings.fetch(&"a".to_owned()).unwrap().to_owned())
+    }
+
+    #[test]
+    fn test_rescue_map() {
+        let source =
+            "let a = \"\"
+            rescue({\"b\" => id}) do
+                a = id
+            end
+            let x = def(a, b) do
+                raise({\"a\" => 1, \"b\" => b})
+            end
+            x(2, 1)";
+
+        let mut vm = Vm::new(source);
+        vm.run();
+        assert_eq!(v_number(1, 1),
+                   vm.frames.last().unwrap().bindings.fetch(&"a".to_owned()).unwrap().to_owned())
+    }
+
+    #[test]
+    #[ignore]
+    fn test_fibonacci() {
+        let source = "let fib = def(k) do
+          rescue({ \"m\" => m, \"k\" => 0 }) do
+            raise({ \"result\" => m })
+          end
+          rescue({ \"m\" => m, \"n\" => n, \"k\" => k }) do
+            raise({ \"m\" => n, \"n\" => m + n, \"k\" => k - 1 })
+          end
+          raise({ \"m\" => 0, \"n\" => 1, \"k\" => k })
+        end
+        let res = \"\"
+        let setup = def() do
+          rescue({ \"result\" => r }) do
+            res = r
+          end
+          fib(6)
+        end
+        setup()";
+
+        let mut vm = Vm::new(source);
+        vm.run();
+        assert_eq!(v_number(8, 1),
+                   vm.frames.last().unwrap().bindings.fetch(&"res".to_owned()).unwrap().to_owned())
+    }
+}
+
+#[cfg(test)]
+mod test_binop {
+    use super::*;
+
+    #[test]
+    fn test_add() {
+        assert_eq!(v_number(17, 2), Vm::add(v_number(8, 1), v_number(1, 2)));
+        assert_eq!(v_string("hello world"),
+                   Vm::add(v_string("hello "), v_string("world")));
+        assert_eq!(v_bool(true), Vm::add(v_bool(true), v_bool(true)));
+        assert_eq!(v_bool(true), Vm::add(v_bool(true), v_bool(false)));
+        assert_eq!(v_bool(true), Vm::add(v_bool(false), v_bool(true)));
+        assert_eq!(v_bool(false), Vm::add(v_bool(false), v_bool(false)));
     }
 }

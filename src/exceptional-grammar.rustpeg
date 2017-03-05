@@ -132,7 +132,7 @@ map -> Literal
     }
 
 keyPairList -> Vec<(Expression, Expression)>
-  = pairs:(key:expression fatArrow value:expression { (key, value) } )* {
+  = pairs:(key:expression fatArrow value:expression { (key, value) } ) ** comma {
       pairs
     }
 
@@ -154,7 +154,7 @@ mapPattern -> Pattern
     }
 
 patternPairList -> Vec<(Pattern, Pattern)>
-  = pairs:(key:patternKey fatArrow value:pattern { (key, value) } )* {
+  = pairs:(key:patternKey fatArrow value:pattern { (key, value) } ) ** comma {
       pairs
     }
 
