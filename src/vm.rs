@@ -449,6 +449,12 @@ impl Vm {
                 panic!("Addition of closures is not supported");
             }
             (Value::Boolean(lbool), Value::Boolean(rbool)) => Value::Boolean(lbool || rbool),
+            (Value::Map(lmap), Value::Map(rmap)) => {
+                let mut result = lmap.clone();
+                let mut rclone = rmap.clone();
+                result.append(&mut rclone);
+                Value::Map(result)
+            }
             _ => panic!("not supported"),
         }
     }
@@ -875,5 +881,8 @@ mod test_binop {
         assert_eq!(v_bool(true), Vm::add(v_bool(true), v_bool(false)));
         assert_eq!(v_bool(true), Vm::add(v_bool(false), v_bool(true)));
         assert_eq!(v_bool(false), Vm::add(v_bool(false), v_bool(false)));
+        assert_eq!(v_map(vec![(v_number(1, 1), v_number(1, 1)), (v_number(2, 1), v_number(2, 1))]),
+                   Vm::add(v_map(vec![(v_number(1, 1), v_number(1, 1))]),
+                           v_map(vec![(v_number(2, 1), v_number(2, 1))])))
     }
 }
