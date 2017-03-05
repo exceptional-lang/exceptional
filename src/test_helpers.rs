@@ -113,3 +113,14 @@ pub fn v_map(pairs: Vec<(Value, Value)>) -> Value {
         .collect::<BTreeMap<_, _>>();
     Value::Map(map)
 }
+
+macro_rules! assert_err {
+    ($e:expr) => {
+        match $e {
+            Err(_) => {}
+            res => {
+                panic!("assertion failed: expected Err, got: {:?}", res)
+            }
+        }
+    }
+}

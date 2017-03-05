@@ -1,9 +1,10 @@
 extern crate num;
 
+#[macro_use]
+mod test_helpers;
 mod ast;
 mod grammar;
 mod vm;
-mod test_helpers;
 
 fn main() {
     match grammar::statements(&"let a = 12345") {

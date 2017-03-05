@@ -432,58 +432,61 @@ impl Vm {
                     let right = self.stack.pop().unwrap();
                     let left = self.stack.pop().unwrap();
 
-                    let result = Vm::add(left, right);
-                    self.stack.push(result);
+                    if let Ok(result) = Vm::add(left, right) {
+                        self.stack.push(result);
+                    } else {
+                        // TODO: Raise
+                    }
                 }
                 Instruction::Sub => {
                     let right = self.stack.pop().unwrap();
                     let left = self.stack.pop().unwrap();
 
-                    let result = Vm::sub(left, right);
-                    self.stack.push(result);
+                    if let Ok(result) = Vm::sub(left, right) {
+                        self.stack.push(result);
+                    } else {
+                        // TODO: Raise
+                    }
                 }
                 _ => panic!("unknown instruction {:?}", instruction),
             };
         }
     }
 
-    fn add(left: Value, right: Value) -> Value {
+    fn add(left: Value, right: Value) -> Result<Value, String> {
         match (left, right) {
-            (Value::Number(lratio), Value::Number(rratio)) => Value::Number(lratio + rratio),
-            (Value::CharString(lstr), Value::CharString(rstr)) => Value::CharString(lstr + &rstr),
-            (Value::Closure(_, _), Value::Closure(_, _)) => {
-                // TODO: Raise Exception
-                panic!("Addition of closures is not supported");
+            (Value::Number(lratio), Value::Number(rratio)) => Ok(Value::Number(lratio + rratio)),
+            (Value::CharString(lstr), Value::CharString(rstr)) => {
+                Ok(Value::CharString(lstr + &rstr))
             }
-            (Value::Boolean(lbool), Value::Boolean(rbool)) => Value::Boolean(lbool || rbool),
+            (Value::Closure(_, _), Value::Closure(_, _)) => {
+                Err("Addition of closures is not supported".to_owned())
+            }
+            (Value::Boolean(lbool), Value::Boolean(rbool)) => Ok(Value::Boolean(lbool || rbool)),
             (Value::Map(lmap), Value::Map(rmap)) => {
                 let mut result = lmap.clone();
                 let mut rclone = rmap.clone();
                 result.append(&mut rclone);
-                Value::Map(result)
+                Ok(Value::Map(result))
             }
-            (l, r) => {
-                // TODO: Raise
-                panic!("Unsupported operation + for {:?} and {:?}", l, r);
-            }
+            (l, r) => Err(format!("Unsupported operation + for {:?} and {:?}", l, r)),
         }
     }
 
-    fn sub(left: Value, right: Value) -> Value {
+    fn sub(left: Value, right: Value) -> Result<Value, String> {
         match (left, right) {
-            (Value::Number(lratio), Value::Number(rratio)) => Value::Number(lratio - rratio),
+            (Value::Number(lratio), Value::Number(rratio)) => Ok(Value::Number(lratio - rratio)),
             (Value::CharString(lstr), Value::CharString(rstr)) => {
                 if let Some(index) = (&lstr).rfind(&rstr) {
-                    Value::CharString(lstr[0..index].to_owned() + &lstr[(index + rstr.len())..])
+                    Ok(Value::CharString(lstr[0..index].to_owned() + &lstr[(index + rstr.len())..]))
                 } else {
-                    Value::CharString("".to_owned())
+                    Ok(Value::CharString("".to_owned()))
                 }
             }
             (Value::Closure(_, _), Value::Closure(_, _)) => {
-                // TODO: Raise Exception
-                panic!("Subtraction of closures is not supported");
+                Err(format!("Subtraction of closures is not supported"))
             }
-            (Value::Boolean(lbool), Value::Boolean(rbool)) => Value::Boolean(lbool ^ rbool),
+            (Value::Boolean(lbool), Value::Boolean(rbool)) => Ok(Value::Boolean(lbool ^ rbool)),
             (Value::Map(lmap), Value::Map(rmap)) => {
                 let result = lmap.into_iter()
                     .filter(|&(ref key, ref value)| if let Some(rvalue) = rmap.get(key) {
@@ -492,12 +495,9 @@ impl Vm {
                         true
                     })
                     .collect();
-                Value::Map(result)
+                Ok(Value::Map(result))
             }
-            (l, r) => {
-                // TODO: Raise
-                panic!("Unsupported operation - for {:?} and {:?}", l, r);
-            }
+            (l, r) => Err(format!("Unsupported operation - for {:?} and {:?}", l, r)),
         }
     }
 
@@ -916,46 +916,58 @@ mod test_binop {
     #[test]
     fn test_add() {
         // Numbers
-        assert_eq!(v_number(17, 2), Vm::add(v_number(8, 1), v_number(1, 2)));
+        assert_eq!(Ok(v_number(17, 2)), Vm::add(v_number(8, 1), v_number(1, 2)));
+        assert_err!(Vm::add(v_number(8, 1), v_string("toto")));
         // Strings
-        assert_eq!(v_string("hello world"),
+        assert_eq!(Ok(v_string("hello world")),
                    Vm::add(v_string("hello "), v_string("world")));
+        assert_err!(Vm::add(v_string("toto"), v_number(1, 1)));
         // Boolean
-        assert_eq!(v_bool(true), Vm::add(v_bool(true), v_bool(true)));
-        assert_eq!(v_bool(true), Vm::add(v_bool(true), v_bool(false)));
-        assert_eq!(v_bool(true), Vm::add(v_bool(false), v_bool(true)));
-        assert_eq!(v_bool(false), Vm::add(v_bool(false), v_bool(false)));
+        assert_eq!(Ok(v_bool(true)), Vm::add(v_bool(true), v_bool(true)));
+        assert_eq!(Ok(v_bool(true)), Vm::add(v_bool(true), v_bool(false)));
+        assert_eq!(Ok(v_bool(true)), Vm::add(v_bool(false), v_bool(true)));
+        assert_eq!(Ok(v_bool(false)), Vm::add(v_bool(false), v_bool(false)));
+        assert_err!(Vm::add(v_bool(false), v_number(1, 1)));
         // Map
-        assert_eq!(v_map(vec![(v_number(1, 1), v_number(1, 1)), (v_number(2, 1), v_number(2, 1))]),
+        assert_eq!(Ok(v_map(vec![(v_number(1, 1), v_number(1, 1)),
+                                 (v_number(2, 1), v_number(2, 1))])),
                    Vm::add(v_map(vec![(v_number(1, 1), v_number(1, 1))]),
-                           v_map(vec![(v_number(2, 1), v_number(2, 1))])))
+                           v_map(vec![(v_number(2, 1), v_number(2, 1))])));
+        assert_err!(Vm::add(v_map(vec![(v_number(1, 1), v_number(1, 1))]),
+                            v_number(1, 1)));
     }
 
     #[test]
     fn test_sub() {
         // Numbers
-        assert_eq!(v_number(15, 2), Vm::sub(v_number(8, 1), v_number(1, 2)));
+        assert_eq!(Ok(v_number(15, 2)), Vm::sub(v_number(8, 1), v_number(1, 2)));
+        assert_err!(Vm::sub(v_number(8, 1), v_string("toto")));
         // Strings
-        assert_eq!(v_string("hello "),
+        assert_eq!(Ok(v_string("hello ")),
                    Vm::sub(v_string("hello world"), v_string("world")));
-        assert_eq!(v_string("helld"),
+        assert_eq!(Ok(v_string("helld")),
                    Vm::sub(v_string("hello world"), v_string("lo wor")));
-        assert_eq!(v_string("hello world"),
+        assert_eq!(Ok(v_string("hello world")),
                    Vm::sub(v_string("hello world"), v_string("")));
+        assert_err!(Vm::sub(v_string("toto"), v_number(1, 1)));
         // Boolean
-        assert_eq!(v_bool(false), Vm::sub(v_bool(true), v_bool(true)));
-        assert_eq!(v_bool(true), Vm::sub(v_bool(true), v_bool(false)));
-        assert_eq!(v_bool(true), Vm::sub(v_bool(false), v_bool(true)));
-        assert_eq!(v_bool(false), Vm::sub(v_bool(false), v_bool(false)));
+        assert_eq!(Ok(v_bool(false)), Vm::sub(v_bool(true), v_bool(true)));
+        assert_eq!(Ok(v_bool(true)), Vm::sub(v_bool(true), v_bool(false)));
+        assert_eq!(Ok(v_bool(true)), Vm::sub(v_bool(false), v_bool(true)));
+        assert_eq!(Ok(v_bool(false)), Vm::sub(v_bool(false), v_bool(false)));
+        assert_err!(Vm::sub(v_bool(false), v_number(1, 1)));
         // Map
-        assert_eq!(v_map(vec![(v_number(1, 1), v_number(1, 1))]),
+        assert_eq!(Ok(v_map(vec![(v_number(1, 1), v_number(1, 1))])),
                    Vm::sub(v_map(vec![(v_number(1, 1), v_number(1, 1)),
                                       (v_number(2, 1), v_number(2, 1))]),
                            v_map(vec![(v_number(2, 1), v_number(2, 1))])));
         // Map
-        assert_eq!(v_map(vec![(v_number(1, 1), v_number(1, 1)), (v_number(2, 1), v_number(2, 1))]),
+        assert_eq!(Ok(v_map(vec![(v_number(1, 1), v_number(1, 1)),
+                                 (v_number(2, 1), v_number(2, 1))])),
                    Vm::sub(v_map(vec![(v_number(1, 1), v_number(1, 1)),
                                       (v_number(2, 1), v_number(2, 1))]),
-                           v_map(vec![(v_number(2, 1), v_number(2, 2))])))
+                           v_map(vec![(v_number(2, 1), v_number(2, 2))])));
+        assert_err!(Vm::sub(v_map(vec![(v_number(1, 1), v_number(1, 1))]),
+                            v_number(1, 1)));
     }
 }
