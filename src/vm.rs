@@ -435,6 +435,13 @@ impl Vm {
                     let result = Vm::add(left, right);
                     self.stack.push(result);
                 }
+                Instruction::Sub => {
+                    let right = self.stack.pop().unwrap();
+                    let left = self.stack.pop().unwrap();
+
+                    let result = Vm::sub(left, right);
+                    self.stack.push(result);
+                }
                 _ => panic!("unknown instruction {:?}", instruction),
             };
         }
@@ -876,7 +883,6 @@ mod test_vm {
     }
 
     #[test]
-    #[ignore]
     fn test_fibonacci() {
         let source = "let fib = def(k) do
           rescue({ \"m\" => m, \"k\" => 0 }) do
