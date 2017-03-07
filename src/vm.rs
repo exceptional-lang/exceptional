@@ -6,7 +6,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use num::rational::{BigRational, Ratio};
 use num::bigint::{BigInt, ToBigInt};
-use num::{range, ToPrimitive};
+use num::{range, ToPrimitive, Zero};
 
 #[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
 pub enum Value {
@@ -517,10 +517,29 @@ impl Vm {
                                        truncation.to_integer();
                 Ok(Value::CharString(extended[..truncation_index.to_usize().unwrap()].to_owned()))
             }
-            (Value::Boolean(lbool), Value::Boolean(rbool)) => {
-                Ok(Value::Boolean(lbool & rbool))
+            (Value::Boolean(lbool), Value::Boolean(rbool)) => Ok(Value::Boolean(lbool & rbool)),
+            (l, r) => Err(format!("Unsupported operation * for {:?} and {:?}", l, r)),
+        }
+    }
+
+    fn div(left: Value, right: Value) -> BinopResult {
+        match (left, right) {
+            (Value::Number(lratio), Value::Number(rratio)) => {
+                if rratio.is_zero() {
+                    Err("Can't divide by zero".to_owned())
+                } else {
+                    Ok(Value::Number(lratio / rratio))
+                }
+            },
+            (Value::CharString(str), Value::Number(ratio)) => {
+                if ratio.is_zero() {
+                    Err("Can't divide by zero".to_owned())
+                } else {
+                    Vm::mul(Value::CharString(str.clone()), Value::Number(Ratio::from_integer(BigInt::from(1)) / ratio))
+                }
             }
-            (l, r) => Err(format!("Unsupported operation - for {:?} and {:?}", l, r)),
+
+            (l, r) => Err(format!("Unsupported operation / for {:?} and {:?}", l, r)),
         }
     }
 
@@ -1020,5 +1039,26 @@ mod test_binop {
         assert_err!(Vm::mul(v_bool(false), v_number(1, 1)));
         // Map can't be multiplied?
         assert_err!(Vm::mul(v_map(vec![]), v_map(vec![])));
+    }
+
+    #[test]
+    fn test_div() {
+        // Numbers
+        assert_eq!(Ok(v_number(16, 1)), Vm::div(v_number(8, 1), v_number(1, 2)));
+        assert_err!(Vm::div(v_number(8, 1), v_number(0, 1)));
+        assert_err!(Vm::div(v_number(8, 1), v_string("toto")));
+        // Strings
+        assert_err!(Vm::div(v_string("hello "), v_string("world")));
+        assert_eq!(Ok(v_string("t")),
+                   Vm::div(v_string("to"), v_number(2, 1)));
+        assert_eq!(Ok(v_string("tototot")),
+                   Vm::div(v_string("to"), v_number(2, 7)));
+        assert_eq!(Ok(v_string("tot")),
+                   Vm::div(v_string("toto"), v_number(4, 3)));
+        assert_err!(Vm::div(v_string("toto"), v_number(0, 1)));
+        // Boolean can't be divided
+        assert_err!(Vm::div(v_bool(true), v_bool(true)));
+        // Map can't be div?
+        assert_err!(Vm::div(v_map(vec![]), v_map(vec![])));
     }
 }
