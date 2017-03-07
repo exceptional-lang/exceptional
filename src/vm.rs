@@ -1,11 +1,12 @@
 use grammar::*;
 use ast::*;
-use test_helpers::*;
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
 use std::rc::Rc;
 use std::cell::RefCell;
-use num::rational::BigRational;
+use num::rational::{BigRational, Ratio};
+use num::bigint::{BigInt, ToBigInt};
+use num::{range, ToPrimitive};
 
 #[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
 pub enum Value {
@@ -34,6 +35,7 @@ pub enum Instruction {
 }
 
 pub type InstructionSequence = Vec<Instruction>;
+pub type BinopResult = Result<Value, String>;
 
 #[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
 pub struct BindingMap {
@@ -453,7 +455,7 @@ impl Vm {
         }
     }
 
-    fn add(left: Value, right: Value) -> Result<Value, String> {
+    fn add(left: Value, right: Value) -> BinopResult {
         match (left, right) {
             (Value::Number(lratio), Value::Number(rratio)) => Ok(Value::Number(lratio + rratio)),
             (Value::CharString(lstr), Value::CharString(rstr)) => {
@@ -473,7 +475,7 @@ impl Vm {
         }
     }
 
-    fn sub(left: Value, right: Value) -> Result<Value, String> {
+    fn sub(left: Value, right: Value) -> BinopResult {
         match (left, right) {
             (Value::Number(lratio), Value::Number(rratio)) => Ok(Value::Number(lratio - rratio)),
             (Value::CharString(lstr), Value::CharString(rstr)) => {
@@ -496,6 +498,27 @@ impl Vm {
                     })
                     .collect();
                 Ok(Value::Map(result))
+            }
+            (l, r) => Err(format!("Unsupported operation - for {:?} and {:?}", l, r)),
+        }
+    }
+
+    fn mul(left: Value, right: Value) -> BinopResult {
+        match (left, right) {
+            (Value::Number(lratio), Value::Number(rratio)) => Ok(Value::Number(lratio * rratio)),
+            (Value::CharString(str), Value::Number(ratio)) => {
+                let extended: String = range(BigInt::from(0), ratio.ceil().to_integer())
+                    .map(|_| &*str)
+                    .collect::<Vec<&str>>()
+                    .join("");
+                let truncation = (ratio.ceil() - ratio.clone()) *
+                                 Ratio::from_integer((str.len() as i64).to_bigint().unwrap());
+                let truncation_index = extended.len().to_bigint().unwrap() -
+                                       truncation.to_integer();
+                Ok(Value::CharString(extended[..truncation_index.to_usize().unwrap()].to_owned()))
+            }
+            (Value::Boolean(lbool), Value::Boolean(rbool)) => {
+                Ok(Value::Boolean(lbool & rbool))
             }
             (l, r) => Err(format!("Unsupported operation - for {:?} and {:?}", l, r)),
         }
@@ -575,6 +598,7 @@ impl Vm {
 
 #[cfg(test)]
 mod test_exception_handler {
+    use test_helpers::*;
     use super::*;
     use std::rc::Rc;
 
@@ -680,6 +704,7 @@ mod test_exception_handler {
 #[cfg(test)]
 mod test_binding_map {
     use super::*;
+    use test_helpers::*;
     use std::collections::BTreeMap;
     use std::rc::Rc;
     use std::cell::RefCell;
@@ -734,6 +759,7 @@ mod test_binding_map {
 #[cfg(test)]
 mod test_vm {
     use super::*;
+    use test_helpers::*;
     use std::rc::Rc;
 
     #[test]
@@ -912,6 +938,7 @@ mod test_vm {
 #[cfg(test)]
 mod test_binop {
     use super::*;
+    use test_helpers::*;
 
     #[test]
     fn test_add() {
@@ -969,5 +996,29 @@ mod test_binop {
                            v_map(vec![(v_number(2, 1), v_number(2, 2))])));
         assert_err!(Vm::sub(v_map(vec![(v_number(1, 1), v_number(1, 1))]),
                             v_number(1, 1)));
+    }
+
+    #[test]
+    fn test_mul() {
+        // Numbers
+        assert_eq!(Ok(v_number(4, 1)), Vm::mul(v_number(8, 1), v_number(1, 2)));
+        assert_err!(Vm::mul(v_number(8, 1), v_string("toto")));
+        // Strings
+        assert_err!(Vm::mul(v_string("hello "), v_string("world")));
+        assert_eq!(Ok(v_string("totototo")),
+                   Vm::mul(v_string("to"), v_number(4, 1)));
+        assert_eq!(Ok(v_string("tototot")),
+                   Vm::mul(v_string("to"), v_number(7, 2)));
+        assert_eq!(Ok(v_string("tot")),
+                   Vm::mul(v_string("toto"), v_number(3, 4)));
+        assert_eq!(Ok(v_string("")), Vm::mul(v_string("toto"), v_number(0, 1)));
+        // Boolean
+        assert_eq!(Ok(v_bool(true)), Vm::mul(v_bool(true), v_bool(true)));
+        assert_eq!(Ok(v_bool(false)), Vm::mul(v_bool(true), v_bool(false)));
+        assert_eq!(Ok(v_bool(false)), Vm::mul(v_bool(false), v_bool(true)));
+        assert_eq!(Ok(v_bool(false)), Vm::mul(v_bool(false), v_bool(false)));
+        assert_err!(Vm::mul(v_bool(false), v_number(1, 1)));
+        // Map can't be multiplied?
+        assert_err!(Vm::mul(v_map(vec![]), v_map(vec![])));
     }
 }

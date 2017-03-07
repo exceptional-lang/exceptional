@@ -1,7 +1,6 @@
 use ast::{Expression, Statement, Literal, Pattern};
 use num::BigInt;
-use num::rational::{Ratio};
-use num::rational::BigRational;
+use num::rational::{Ratio, BigRational};
 
 #[pub]
 statements -> Vec<Statement>
