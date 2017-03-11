@@ -56,13 +56,25 @@ addition_op -> String
   = op:$([+-]) __ { op.to_owned() }
 
 multiplication -> Expression
-  = left:primary op:multiplication_op right:multiplication {
+  = left:accessExpression op:multiplication_op right:multiplication {
       Expression::BinOp(op, Box::new(left), Box::new(right))
     }
-  / primary
+  / accessExpression
 
 multiplication_op -> String
   = op:$([*/]) __ { op.to_owned() }
+
+accessExpression -> Expression
+  = target:primary properties:propertyAccess+ {
+      properties.iter().fold(target, |acc, ref exp| {
+        Expression::IndexAccess(Box::new(acc.clone()), Box::new((*exp).clone()))
+      })
+    }
+  / primary
+
+propertyAccess -> Expression
+  = lbracket property:addition rbracket { property }
+
 
 primary -> Expression
   = val:literal { Expression::Literal(val) }
@@ -126,7 +138,7 @@ block -> Vec<Statement>
   = do statements:statements end { statements }
 
 map -> Literal
-  = lbracket pairs:keyPairList rbracket {
+  = lbrace pairs:keyPairList rbrace {
       Literal::Map(pairs)
     }
 
@@ -148,7 +160,7 @@ patternKey -> Pattern
   / booleanPattern
 
 mapPattern -> Pattern
-  = lbracket pairs:patternPairList rbracket {
+  = lbrace pairs:patternPairList rbrace {
       Pattern::Map(pairs)
     }
 
@@ -212,11 +224,17 @@ lparen
 rparen
   = __ ")" __
 
-lbracket
+lbrace
   = __ "{" __
 
-rbracket
+rbrace
   = __ "}" __
+
+lbracket
+  = __ "[" __
+
+rbracket
+  = __ "]" __
 
 fatArrow
   = __ "=>" __

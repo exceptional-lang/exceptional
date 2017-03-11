@@ -6,9 +6,9 @@ pub enum Literal {
     CharString(String),
     Boolean(bool),
     Map(Vec<(Expression, Expression)>),
-    Fn(Box<Vec<String>>, Box<Vec<Statement>>), 
-    // Vec(Vec<Value>),
+    Fn(Box<Vec<String>>, Box<Vec<Statement>>),
 }
+// TODO: Vec(Vec<Value>)
 
 #[derive(Clone, Eq, Debug, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Statement {
@@ -23,6 +23,7 @@ pub enum Expression {
     BinOp(String, Box<Expression>, Box<Expression>),
     Literal(Literal),
     Identifier(String),
+    IndexAccess(Box<Expression>, Box<Expression>),
 }
 
 #[derive(Clone, Eq, Debug, Hash, Ord, PartialEq, PartialOrd)]

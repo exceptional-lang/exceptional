@@ -79,6 +79,10 @@ pub fn e_binop(op: &str, left: Expression, right: Expression) -> Expression {
     Expression::BinOp(op.to_owned(), Box::new(left), Box::new(right))
 }
 
+pub fn e_index_access(target: Expression, property: Expression) -> Expression {
+    Expression::IndexAccess(Box::new(target), Box::new(property))
+}
+
 pub fn build_ratio(num: i64, denom: i64) -> Ratio<BigInt> {
     Ratio::new(BigInt::from(num), BigInt::from(denom))
 }

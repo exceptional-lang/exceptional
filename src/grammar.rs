@@ -69,6 +69,13 @@ mod test_expressions {
     }
 
     #[test]
+    fn parses_access() {
+        assert_eq!(parse_expression(&"toto[titi][tutu]"),
+                   e_index_access(e_index_access(e_identifier(&"toto"), e_identifier(&"titi")),
+                                  e_identifier(&"tutu")));
+    }
+
+    #[test]
     fn parses_simple_functions() {
         assert_eq!(parse_expression(&"def() do end"),
                    e_literal(l_function(vec![], vec![])))

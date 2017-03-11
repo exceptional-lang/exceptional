@@ -26,6 +26,7 @@ pub enum Instruction {
     Call(usize),
     MakeMap(usize),
     Rescue(Rc<Pattern>, Rc<InstructionSequence>),
+    IndexAccess,
     Raise,
     Add,
     Sub,
@@ -239,6 +240,7 @@ impl Frame {
 }
 
 fn compile_statement<'a>(statement: &'a Statement) -> InstructionSequence {
+    // TODO: Clear stack at start of statement?
     match statement {
         &Statement::Assign(local, ref binding_name, ref expression) => {
             let mut instructions = compile_expression(expression);
@@ -299,6 +301,12 @@ fn compile_expression<'a>(expression: &'a Expression) -> InstructionSequence {
             let mut instructions = compile_expression(&*left);
             instructions.extend(compile_expression(&*right).iter().cloned());
             instructions.push(compile_binop(&*op));
+            instructions
+        }
+        &Expression::IndexAccess(ref target, ref property) => {
+            let mut instructions = compile_expression(&*target);
+            instructions.extend(compile_expression(&*property).iter().cloned());
+            instructions.push(Instruction::IndexAccess);
             instructions
         }
     }
@@ -450,6 +458,21 @@ impl Vm {
                         // TODO: Raise
                     }
                 }
+                Instruction::IndexAccess => {
+                    let property = self.stack.pop().unwrap();
+                    let target = self.stack.pop().unwrap();
+
+                    match target {
+                        Value::Map(ref map) => {
+                            if let Some(value) = map.get(&property) {
+                                self.stack.push((**value).clone());
+                            } else {
+                                panic!("no value for {:?}", target); // TODO: Raise
+                            }
+                        }
+                        v => panic!("can't use index access for {:?}", v) // TODO: Raise
+                    };
+                }
                 _ => panic!("unknown instruction {:?}", instruction),
             };
         }
@@ -530,12 +553,13 @@ impl Vm {
                 } else {
                     Ok(Value::Number(lratio / rratio))
                 }
-            },
+            }
             (Value::CharString(str), Value::Number(ratio)) => {
                 if ratio.is_zero() {
                     Err("Can't divide by zero".to_owned())
                 } else {
-                    Vm::mul(Value::CharString(str.clone()), Value::Number(Ratio::from_integer(BigInt::from(1)) / ratio))
+                    Vm::mul(Value::CharString(str.clone()),
+                            Value::Number(Ratio::from_integer(BigInt::from(1)) / ratio))
                 }
             }
 
@@ -782,12 +806,12 @@ mod test_vm {
     use std::rc::Rc;
 
     #[test]
-    fn test_new_populates_basic_instructions() {
+    fn test_new_compiles_basic_instructions() {
         let source = "let a = 1
             let b = \"\"
             rescue(id) do
                 \
-                      b = 1 + 2 * 1
+                      b = 1 + 2 * 1 + a[c]
             end
             raise(\"a\")";
         let vm = Vm::new(source);
@@ -800,6 +824,10 @@ mod test_vm {
                                                           Instruction::Push(l_number(2, 1)),
                                                           Instruction::Push(l_number(1, 1)),
                                                           Instruction::Mul,
+                                                          Instruction::Fetch("a".to_owned()),
+                                                          Instruction::Fetch("c".to_owned()),
+                                                          Instruction::IndexAccess,
+                                                          Instruction::Add,
                                                           Instruction::Add,
                                                           Instruction::Assign("b".to_owned())])),
                          Instruction::Push(l_string("a")),
@@ -808,7 +836,7 @@ mod test_vm {
     }
 
     #[test]
-    fn test_new_populates_function_instructions() {
+    fn test_new_compiles_function_instructions() {
         let source = "let a = { 1 => 2 }
             let b = def(x) do
             end
@@ -1049,8 +1077,7 @@ mod test_binop {
         assert_err!(Vm::div(v_number(8, 1), v_string("toto")));
         // Strings
         assert_err!(Vm::div(v_string("hello "), v_string("world")));
-        assert_eq!(Ok(v_string("t")),
-                   Vm::div(v_string("to"), v_number(2, 1)));
+        assert_eq!(Ok(v_string("t")), Vm::div(v_string("to"), v_number(2, 1)));
         assert_eq!(Ok(v_string("tototot")),
                    Vm::div(v_string("to"), v_number(2, 7)));
         assert_eq!(Ok(v_string("tot")),
