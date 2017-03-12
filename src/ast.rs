@@ -13,6 +13,7 @@ pub enum Literal {
 #[derive(Clone, Eq, Debug, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Statement {
     Assign(bool, String, Box<Expression>),
+    IndexAssign(Box<Expression>, Box<Expression>, Box<Expression>),
     Call(String, Vec<Expression>),
     Raise(Expression),
     Rescue(Pattern, Box<Vec<Statement>>),

@@ -13,8 +13,8 @@ pub enum Value {
     Number(BigRational),
     CharString(String),
     Boolean(bool),
-    Map(BTreeMap<Rc<Value>, Rc<Value>>),
-    Closure(Box<Vec<String>>, Closure),
+    Map(Rc<RefCell<BTreeMap<Value, Value>>>),
+    Closure(Rc<Box<Vec<String>>>, Rc<Closure>),
 }
 
 #[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
@@ -27,6 +27,7 @@ pub enum Instruction {
     MakeMap(usize),
     Rescue(Rc<Pattern>, Rc<InstructionSequence>),
     IndexAccess,
+    IndexAssign,
     Raise,
     Add,
     Sub,
@@ -183,8 +184,9 @@ impl ExceptionHandler {
                 for &(ref key, ref pattern_value) in pairs.iter() {
                     let key_as_value = ExceptionHandler::pattern_key_to_value(key);
 
-                    let maybe_nested_bindings = btreemap.get(&Rc::new(key_as_value))
-                        .and_then(|value| ExceptionHandler::match_pattern(pattern_value, &**value));
+                    let maybe_nested_bindings = btreemap.borrow()
+                        .get(&Rc::new(key_as_value))
+                        .and_then(|value| ExceptionHandler::match_pattern(pattern_value, value));
 
                     if let None = maybe_nested_bindings {
                         return None;
@@ -271,7 +273,14 @@ fn compile_statement<'a>(statement: &'a Statement) -> InstructionSequence {
             instructions.push(Instruction::Raise);
             instructions
         }
-        // s => panic!("not implemented: {:?}", s),
+        &Statement::IndexAssign(ref target, ref property, ref value) => {
+            let mut instructions = compile_expression(target);
+            instructions.extend(compile_expression(property).iter().cloned());
+            instructions.extend(compile_expression(value).iter().cloned());
+            instructions.push(Instruction::IndexAssign);
+            instructions
+        }
+        //        s => panic!("not implemented: {:?}", s),
     }
 }
 
@@ -403,10 +412,10 @@ impl Vm {
                                arg_size)
                     };
                     let mut map = BindingMap::new(Some(&closure.parent_bindings));
-                    for arg_name in closure_args.iter().rev() {
-                        map.local_assign(arg_name, args.pop().unwrap());
+                    for arg_name in (*closure_args).clone().iter().rev() {
+                        map.local_assign(&(*arg_name).clone(), args.pop().unwrap());
                     }
-                    self.reset_instructions(closure.instructions, map)
+                    self.reset_instructions(closure.instructions.clone(), map)
                 }
                 Instruction::Fetch(ref binding_name) => {
                     let value = self.frames.last().unwrap().bindings.fetch(binding_name).unwrap();
@@ -418,10 +427,10 @@ impl Vm {
                         .map(|_| {
                             let value = self.stack.pop().unwrap();
                             let key = self.stack.pop().unwrap();
-                            (Rc::new(key), Rc::new(value))
+                            (key, value)
                         })
                         .collect();
-                    self.stack.push(Value::Map(map))
+                    self.stack.push(Value::Map(Rc::new(RefCell::new(map))))
                 }
                 Instruction::Rescue(ref pattern, ref iseq) => {
                     let top_bindings = {
@@ -464,13 +473,25 @@ impl Vm {
 
                     match target {
                         Value::Map(ref map) => {
-                            if let Some(value) = map.get(&property) {
-                                self.stack.push((**value).clone());
+                            if let Some(value) = map.borrow().get(&property) {
+                                self.stack.push((*value).clone());
                             } else {
                                 panic!("no value for {:?}", target); // TODO: Raise
                             }
                         }
-                        v => panic!("can't use index access for {:?}", v) // TODO: Raise
+                        v => panic!("can't use index access for {:?}", v), // TODO: Raise
+                    };
+                }
+                Instruction::IndexAssign => {
+                    let value = self.stack.pop().unwrap();
+                    let property = self.stack.pop().unwrap();
+                    let mut target = self.stack.pop().unwrap();
+
+                    match target {
+                        Value::Map(ref mut map) => {
+                            map.borrow_mut().insert(property, value);
+                        }
+                        v => panic!("can't use index access for {:?}", v), // TODO: Raise
                     };
                 }
                 _ => panic!("unknown instruction {:?}", instruction),
@@ -489,10 +510,10 @@ impl Vm {
             }
             (Value::Boolean(lbool), Value::Boolean(rbool)) => Ok(Value::Boolean(lbool || rbool)),
             (Value::Map(lmap), Value::Map(rmap)) => {
-                let mut result = lmap.clone();
-                let mut rclone = rmap.clone();
+                let mut result = (*lmap.borrow()).clone();
+                let mut rclone = (*rmap.borrow()).clone();
                 result.append(&mut rclone);
-                Ok(Value::Map(result))
+                Ok(Value::Map(Rc::new(RefCell::new(result))))
             }
             (l, r) => Err(format!("Unsupported operation + for {:?} and {:?}", l, r)),
         }
@@ -512,15 +533,17 @@ impl Vm {
                 Err(format!("Subtraction of closures is not supported"))
             }
             (Value::Boolean(lbool), Value::Boolean(rbool)) => Ok(Value::Boolean(lbool ^ rbool)),
-            (Value::Map(lmap), Value::Map(rmap)) => {
-                let result = lmap.into_iter()
-                    .filter(|&(ref key, ref value)| if let Some(rvalue) = rmap.get(key) {
+            (Value::Map(ref lmap), Value::Map(ref rmap)) => {
+                let result = lmap.borrow()
+                    .clone()
+                    .into_iter()
+                    .filter(|&(ref key, ref value)| if let Some(rvalue) = rmap.borrow().get(key) {
                         rvalue != value
                     } else {
                         true
                     })
-                    .collect();
-                Ok(Value::Map(result))
+                    .collect::<BTreeMap<_, _>>();
+                Ok(Value::Map(Rc::new(RefCell::new(result))))
             }
             (l, r) => Err(format!("Unsupported operation - for {:?} and {:?}", l, r)),
         }
@@ -632,7 +655,7 @@ impl Vm {
             &Literal::Fn(ref args, ref statements) => {
                 // Statements should be compiled ahead of time
                 let closure = Closure::new(Rc::new(compile(&statements)), top_bindings);
-                Value::Closure(args.clone(), closure)
+                Value::Closure(Rc::new(args.clone()), Rc::new(closure))
             }
             _ => panic!("not implemented"),
         }
@@ -810,8 +833,8 @@ mod test_vm {
         let source = "let a = 1
             let b = \"\"
             rescue(id) do
-                \
-                      b = 1 + 2 * 1 + a[c]
+              b = 1 + 2 * 1 + a[c]
+              c[d] = 1
             end
             raise(\"a\")";
         let vm = Vm::new(source);
@@ -829,7 +852,11 @@ mod test_vm {
                                                           Instruction::IndexAccess,
                                                           Instruction::Add,
                                                           Instruction::Add,
-                                                          Instruction::Assign("b".to_owned())])),
+                                                          Instruction::Assign("b".to_owned()),
+                                                          Instruction::Fetch("c".to_owned()),
+                                                          Instruction::Fetch("d".to_owned()),
+                                                          Instruction::Push(l_number(1, 1)),
+                                                          Instruction::IndexAssign])),
                          Instruction::Push(l_string("a")),
                          Instruction::Raise]);
         assert_eq!(vm.instructions, expected)
@@ -953,6 +980,27 @@ mod test_vm {
         vm.run();
         assert_eq!(v_number(1, 1),
                    vm.frames.last().unwrap().bindings.fetch(&"a".to_owned()).unwrap().to_owned())
+    }
+
+    #[test]
+    fn test_maps() {
+        let source = "let a = { \"c\" => 1 }
+            a[\"b\"] = 2
+            let b = a[\"b\"]
+            let c = a[\"c\"]\
+            let d = a + { \"e\" => 3 }";
+
+        let mut vm = Vm::new(source);
+        vm.run();
+
+        assert_eq!(v_number(2, 1),
+                   vm.frames.last().unwrap().bindings.fetch(&"b".to_owned()).unwrap().to_owned());
+        assert_eq!(v_number(1, 1),
+                   vm.frames.last().unwrap().bindings.fetch(&"c".to_owned()).unwrap().to_owned());
+        assert_eq!(v_map(vec![(v_string("c"), v_number(1, 1)), (v_string("b"), v_number(2, 1))]),
+                   vm.frames.last().unwrap().bindings.fetch(&"a".to_owned()).unwrap().to_owned());
+        assert_eq!(v_map(vec![(v_string("c"), v_number(1, 1)), (v_string("b"), v_number(2, 1)), (v_string("e"), v_number(3, 1))]),
+                   vm.frames.last().unwrap().bindings.fetch(&"d".to_owned()).unwrap().to_owned());
     }
 
     #[test]

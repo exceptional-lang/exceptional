@@ -16,9 +16,15 @@ assignStatement -> Statement
   = let ident:identifier "=" __ exp:expression {
       Statement::Assign(true, ident, Box::new(exp))
     }
-
   / ident:identifier "=" __ exp:expression {
       Statement::Assign(false, ident, Box::new(exp))
+    }
+  / targetAndProperty:accessExpression __ "=" __ exp:expression {
+      if let Expression::IndexAccess(target, property) = targetAndProperty {
+        Statement::IndexAssign(target, property, Box::new(exp))
+      } else {
+        panic!("should never happen")
+      }
     }
 
 callStatement -> Statement
@@ -74,7 +80,6 @@ accessExpression -> Expression
 
 propertyAccess -> Expression
   = lbracket property:addition rbracket { property }
-
 
 primary -> Expression
   = val:literal { Expression::Literal(val) }

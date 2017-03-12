@@ -6,6 +6,7 @@ use num::BigInt;
 use grammar::*;
 use vm::*;
 use std::rc::*;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 
 pub fn l_string(string: &str) -> Literal {
@@ -53,6 +54,10 @@ pub fn p_ident(name: &str) -> Pattern {
 
 pub fn s_assign(name: &str, literal: Literal) -> Statement {
     Statement::Assign(true, name.to_owned(), Box::new(e_literal(literal)))
+}
+
+pub fn s_index_assign(target: Expression, property: Expression, value: Expression) -> Statement {
+    Statement::IndexAssign(Box::new(target), Box::new(property), Box::new(value))
 }
 
 pub fn s_call(name: &str, args: Vec<Expression>) -> Statement {
@@ -113,9 +118,9 @@ pub fn v_number(num: i64, denom: i64) -> Value {
 
 pub fn v_map(pairs: Vec<(Value, Value)>) -> Value {
     let map: BTreeMap<_, _> = pairs.into_iter()
-        .map(|(key, value)| (Rc::new(key), Rc::new(value)))
+        .map(|(key, value)| (key, value))
         .collect::<BTreeMap<_, _>>();
-    Value::Map(map)
+    Value::Map(Rc::new(RefCell::new(map)))
 }
 
 macro_rules! assert_err {

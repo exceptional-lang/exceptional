@@ -106,6 +106,14 @@ mod test_statements {
     }
 
     #[test]
+    fn parses_map_assign() {
+        assert_eq!(parse_statements(&"a[b][c] = d"),
+                   [s_index_assign(e_index_access(e_identifier(&"a"), e_identifier(&"b")),
+                                   e_identifier(&"c"),
+                                   e_identifier(&"d"))])
+    }
+
+    #[test]
     fn parses_calls() {
         assert_eq!(parse_statements("a()"), [s_call(&"a", vec![])])
     }
