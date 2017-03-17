@@ -7,6 +7,7 @@ mod test_helpers;
 mod ast;
 mod grammar;
 mod vm;
+mod compiler;
 use std::env;
 use vm::Vm;
 

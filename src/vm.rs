@@ -1,5 +1,6 @@
 use grammar::*;
 use ast::*;
+use compiler::*;
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
 use std::rc::Rc;
@@ -241,105 +242,6 @@ impl Frame {
     }
 }
 
-fn compile_statement<'a>(statement: &'a Statement) -> InstructionSequence {
-    // TODO: Clear stack at start of statement?
-    match statement {
-        &Statement::Assign(local, ref binding_name, ref expression) => {
-            let mut instructions = compile_expression(expression);
-            let instruction = match local {
-                true => Instruction::LocalAssign(binding_name.to_owned()),
-                false => Instruction::Assign(binding_name.to_owned()),
-            };
-            instructions.push(instruction);
-            instructions
-        }
-        &Statement::Call(ref binding_name, ref expressions) => {
-            let mut instructions = expressions.iter()
-                .flat_map(|exp| compile_expression(exp))
-                .collect::<InstructionSequence>();
-            instructions.push(Instruction::Fetch(binding_name.to_owned()));
-            instructions.push(Instruction::Call(expressions.len()));
-            instructions
-        }
-        &Statement::Rescue(ref pattern, ref statements) => {
-            let instructions = statements.iter()
-                .flat_map(|stmt| compile_statement(stmt))
-                .collect::<InstructionSequence>();
-
-            vec![Instruction::Rescue(Rc::new(pattern.clone()), Rc::new(instructions))]
-        }
-        &Statement::Raise(ref expression) => {
-            let mut instructions = compile_expression(expression);
-            instructions.push(Instruction::Raise);
-            instructions
-        }
-        &Statement::IndexAssign(ref target, ref property, ref value) => {
-            let mut instructions = compile_expression(target);
-            instructions.extend(compile_expression(property).iter().cloned());
-            instructions.extend(compile_expression(value).iter().cloned());
-            instructions.push(Instruction::IndexAssign);
-            instructions
-        }
-        //        s => panic!("not implemented: {:?}", s),
-    }
-}
-
-fn compile_expression<'a>(expression: &'a Expression) -> InstructionSequence {
-    match expression {
-        &Expression::Literal(ref literal) => {
-            match literal {
-                &Literal::Map(ref pairs) => {
-                    let mut map_instructions = pairs.iter()
-                        .flat_map(|&(ref key, ref value)| {
-                            let mut insns = compile_expression(key);
-                            insns.extend(compile_expression(value).iter().cloned());
-                            insns
-                        })
-                        .collect::<InstructionSequence>();
-
-                    map_instructions.push(Instruction::MakeMap(pairs.len()));
-                    map_instructions
-                }
-                _ => vec![Instruction::Push(literal.to_owned())],
-            }
-        }
-        &Expression::Identifier(ref binding_name) => {
-            vec![Instruction::Fetch(binding_name.to_owned())]
-        }
-        &Expression::BinOp(ref op, ref left, ref right) => {
-            let mut instructions = compile_expression(&*left);
-            instructions.extend(compile_expression(&*right).iter().cloned());
-            instructions.push(compile_binop(&*op));
-            instructions
-        }
-        &Expression::IndexAccess(ref target, ref property) => {
-            let mut instructions = compile_expression(&*target);
-            instructions.extend(compile_expression(&*property).iter().cloned());
-            instructions.push(Instruction::IndexAccess);
-            instructions
-        }
-    }
-}
-
-fn compile_binop(op: &str) -> Instruction {
-    match op {
-        "+" => Instruction::Add,
-        "-" => Instruction::Sub,
-        "/" => Instruction::Div,
-        "*" => Instruction::Mul,
-        _ => panic!("Unsupported binary operation: {:?}", op),
-    }
-}
-
-fn compile<'a>(statements: &'a Vec<Statement>) -> InstructionSequence {
-    let mut instructions = InstructionSequence::new();
-
-    for statement in statements.iter() {
-        instructions.extend(compile_statement(&statement).iter().cloned());
-    }
-
-    instructions
-}
 
 #[derive(Clone, Eq, Debug, PartialEq)]
 pub struct Vm {
@@ -999,7 +901,9 @@ mod test_vm {
                    vm.frames.last().unwrap().bindings.fetch(&"c".to_owned()).unwrap().to_owned());
         assert_eq!(v_map(vec![(v_string("c"), v_number(1, 1)), (v_string("b"), v_number(2, 1))]),
                    vm.frames.last().unwrap().bindings.fetch(&"a".to_owned()).unwrap().to_owned());
-        assert_eq!(v_map(vec![(v_string("c"), v_number(1, 1)), (v_string("b"), v_number(2, 1)), (v_string("e"), v_number(3, 1))]),
+        assert_eq!(v_map(vec![(v_string("c"), v_number(1, 1)),
+                              (v_string("b"), v_number(2, 1)),
+                              (v_string("e"), v_number(3, 1))]),
                    vm.frames.last().unwrap().bindings.fetch(&"d".to_owned()).unwrap().to_owned());
     }
 
