@@ -5,9 +5,13 @@ extern crate num;
 mod test_helpers;
 
 mod ast;
+mod instructions;
+mod value;
 mod grammar;
 mod vm;
+mod closure;
 mod compiler;
+mod binding_map;
 use std::env;
 use vm::Vm;
 

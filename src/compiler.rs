@@ -1,5 +1,6 @@
 use ast::*;
-use vm::*;
+//use vm::*;
+use instructions::*;
 use std::rc::Rc;
 
 fn compile_statement<'a>(statement: &'a Statement) -> InstructionSequence {
@@ -117,32 +118,28 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn compiles_literal_expressions() {
         assert_eq!(compile_expression(&e_literal(l_number(1, 1))),
                    vec![Instruction::Push(Literal::Number(build_ratio(1, 1)))])
     }
 
     #[test]
-    #[ignore]
     fn compiles_binop_expressions() {
         assert_eq!(compile_expression(&e_binop("+",
                                                e_literal(l_number(1, 1)),
                                                e_literal(l_number(2, 1)))),
                    vec![Instruction::Push(Literal::Number(build_ratio(1, 1))),
-                        Instruction::Push(Literal::Number(build_ratio(1, 1))),
+                        Instruction::Push(Literal::Number(build_ratio(2, 1))),
                         Instruction::Add])
     }
 
     #[test]
-    #[ignore]
     fn compiles_identifier_expressions() {
         assert_eq!(compile_expression(&e_identifier("toto")),
                    vec![Instruction::Fetch("toto".to_owned())]);
     }
 
     #[test]
-    #[ignore]
     fn compiles_index_access_expressions() {
         assert_eq!(compile_expression(&e_index_access(e_identifier("toto"),
                                                       e_literal(l_string("titi")))),

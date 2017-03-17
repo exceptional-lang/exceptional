@@ -1,6 +1,11 @@
 use grammar::*;
 use ast::*;
 use compiler::*;
+use instructions::*;
+use binding_map::BindingMap;
+use value::Value;
+use closure::Closure;
+
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
 use std::rc::Rc;
@@ -9,109 +14,7 @@ use num::rational::{BigRational, Ratio};
 use num::bigint::{BigInt, ToBigInt};
 use num::{range, ToPrimitive, Zero};
 
-#[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
-pub enum Value {
-    Number(BigRational),
-    CharString(String),
-    Boolean(bool),
-    Map(Rc<RefCell<BTreeMap<Value, Value>>>),
-    Closure(Rc<Box<Vec<String>>>, Rc<Closure>),
-}
-
-#[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
-pub enum Instruction {
-    Push(Literal),
-    Fetch(String),
-    LocalAssign(String),
-    Assign(String),
-    Call(usize),
-    MakeMap(usize),
-    Rescue(Rc<Pattern>, Rc<InstructionSequence>),
-    IndexAccess,
-    IndexAssign,
-    Raise,
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Nop,
-}
-
-pub type InstructionSequence = Vec<Instruction>;
 pub type BinopResult = Result<Value, String>;
-
-#[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
-pub struct BindingMap {
-    map: Rc<RefCell<BTreeMap<String, Value>>>,
-    parent: Option<Box<BindingMap>>,
-}
-
-impl BindingMap {
-    fn new(parent: Option<&BindingMap>) -> BindingMap {
-        let parent = match parent {
-            Some(map) => Some(Box::new(map.clone())),
-            None => None,
-        };
-        BindingMap {
-            map: Rc::new(RefCell::new(BTreeMap::new())),
-            parent: parent,
-        }
-    }
-
-    pub fn fetch(&self, binding_name: &String) -> Option<Value> {
-        match self.map.borrow().get(binding_name) {
-            Some(value) => Some(value.clone()),
-            None => {
-                match self.parent {
-                    Some(ref parent) => parent.fetch(binding_name),
-                    None => None,
-                }
-            }
-        }
-    }
-
-    pub fn local_assign(&mut self, binding_name: &String, value: Value) {
-        self.map.borrow_mut().insert(binding_name.to_owned(), value);
-    }
-
-    pub fn assign(&mut self, binding_name: &String, value: Value) {
-        match self.has_binding(binding_name) {
-            true => self.local_assign(binding_name, value),
-            false => {
-                match self.parent {
-                    Some(ref mut parent) => parent.assign(binding_name, value),
-                    None => panic!("no such binding"),
-                }
-            }
-        }
-    }
-
-    pub fn has_binding(&self, binding_name: &String) -> bool {
-        self.map.borrow().contains_key(binding_name)
-    }
-}
-
-#[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
-pub struct Closure {
-    instructions: Rc<InstructionSequence>,
-    parent_bindings: BindingMap,
-}
-
-impl Closure {
-    pub fn new(instructions: Rc<InstructionSequence>, parent_bindings: &BindingMap) -> Closure {
-        Closure {
-            instructions: instructions,
-            parent_bindings: parent_bindings.clone(),
-        }
-    }
-
-    pub fn blank() -> Closure {
-        Closure {
-            instructions: Rc::new(vec![]),
-            parent_bindings: BindingMap::new(None),
-        }
-    }
-}
 
 #[derive(Clone, Eq, Debug, PartialEq)]
 struct ExceptionHandler {
@@ -313,10 +216,13 @@ impl Vm {
                                closure_args.len(),
                                arg_size)
                     };
-                    let mut map = BindingMap::new(Some(&closure.parent_bindings));
-                    for arg_name in (*closure_args).clone().iter().rev() {
-                        map.local_assign(&(*arg_name).clone(), args.pop().unwrap());
-                    }
+                    let local_bindings = (*closure_args)
+                        .clone()
+                        .into_iter()
+                        .rev()
+                        .map(|arg_name| (arg_name, args.pop().unwrap()))
+                        .collect();
+                    let mut map = closure.init_map(local_bindings);
                     self.reset_instructions(closure.instructions.clone(), map)
                 }
                 Instruction::Fetch(ref binding_name) => {
@@ -669,60 +575,6 @@ mod test_exception_handler {
     }
 }
 
-#[cfg(test)]
-mod test_binding_map {
-    use super::*;
-    use test_helpers::*;
-    use std::collections::BTreeMap;
-    use std::rc::Rc;
-    use std::cell::RefCell;
-
-    #[test]
-    fn test_new() {
-        assert_eq!(Rc::new(RefCell::new(BTreeMap::new())),
-                   BindingMap::new(None).map)
-    }
-
-    #[test]
-    fn test_has_binding() {
-        let map = BindingMap::new(None);
-        assert_eq!(false, map.has_binding(&"toto".to_owned()))
-    }
-
-    #[test]
-    fn test_local_assign() {
-        let mut map = BindingMap::new(None);
-        map.local_assign(&"toto".to_owned(), v_string("value"));
-        assert!(map.has_binding(&"toto".to_owned()))
-    }
-
-    #[test]
-    fn test_fetch() {
-        let mut map = BindingMap::new(None);
-        map.local_assign(&"toto".to_owned(), v_string("value"));
-        assert_eq!(Some(v_string("value")), map.fetch(&"toto".to_owned()))
-    }
-
-    #[test]
-    fn test_delegates_fetch() {
-        let mut parent = BindingMap::new(None);
-        parent.local_assign(&"toto".to_owned(), v_string("value"));
-        let map = BindingMap::new(Some(&parent));
-
-        assert_eq!(Some(v_string("value")), map.fetch(&"toto".to_owned()))
-    }
-
-    #[test]
-    fn test_delegates_assign() {
-        let mut parent = BindingMap::new(None);
-        parent.local_assign(&"toto".to_owned(), v_string("value"));
-        let mut map = BindingMap::new(Some(&parent));
-        map.assign(&"toto".to_owned(), v_string("new_value"));
-
-        assert_eq!(Some(v_string("new_value")),
-                   parent.fetch(&"toto".to_owned()))
-    }
-}
 
 #[cfg(test)]
 mod test_vm {
