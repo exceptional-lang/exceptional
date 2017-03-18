@@ -1,5 +1,4 @@
 use ast::*;
-//use vm::*;
 use instructions::*;
 use std::rc::Rc;
 

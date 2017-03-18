@@ -3,18 +3,15 @@ use ast::*;
 use compiler::*;
 use instructions::*;
 use binding_map::BindingMap;
-use value::Value;
+use value::{Value, BinopResult};
 use closure::Closure;
 use exception_handler::ExceptionHandler;
 
-use std::collections::BTreeMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 use num::rational::Ratio;
 use num::bigint::{BigInt, ToBigInt};
 use num::{range, ToPrimitive, Zero};
-
-pub type BinopResult = Result<Value, String>;
 
 #[derive(Clone, Eq, Debug, PartialEq)]
 struct Frame {
@@ -156,7 +153,7 @@ impl Vm {
                     let right = self.stack.pop().unwrap();
                     let left = self.stack.pop().unwrap();
 
-                    if let Ok(result) = Vm::sub(left, right) {
+                    if let Ok(result) = left.sub(right) {
                         self.stack.push(result);
                     } else {
                         // TODO: Raise
@@ -211,36 +208,6 @@ impl Vm {
                 Ok(Value::Map(Rc::new(RefCell::new(result))))
             }
             (l, r) => Err(format!("Unsupported operation + for {:?} and {:?}", l, r)),
-        }
-    }
-
-    fn sub(left: Value, right: Value) -> BinopResult {
-        match (left, right) {
-            (Value::Number(lratio), Value::Number(rratio)) => Ok(Value::Number(lratio - rratio)),
-            (Value::CharString(lstr), Value::CharString(rstr)) => {
-                if let Some(index) = (&lstr).rfind(&rstr) {
-                    Ok(Value::CharString(lstr[0..index].to_owned() + &lstr[(index + rstr.len())..]))
-                } else {
-                    Ok(Value::CharString("".to_owned()))
-                }
-            }
-            (Value::Closure(_, _), Value::Closure(_, _)) => {
-                Err(format!("Subtraction of closures is not supported"))
-            }
-            (Value::Boolean(lbool), Value::Boolean(rbool)) => Ok(Value::Boolean(lbool ^ rbool)),
-            (Value::Map(ref lmap), Value::Map(ref rmap)) => {
-                let result = lmap.borrow()
-                    .clone()
-                    .into_iter()
-                    .filter(|&(ref key, ref value)| if let Some(rvalue) = rmap.borrow().get(key) {
-                        rvalue != value
-                    } else {
-                        true
-                    })
-                    .collect::<BTreeMap<_, _>>();
-                Ok(Value::Map(Rc::new(RefCell::new(result))))
-            }
-            (l, r) => Err(format!("Unsupported operation - for {:?} and {:?}", l, r)),
         }
     }
 
@@ -539,40 +506,6 @@ mod test_binop {
                    Vm::add(v_map(vec![(v_number(1, 1), v_number(1, 1))]),
                            v_map(vec![(v_number(2, 1), v_number(2, 1))])));
         assert_err!(Vm::add(v_map(vec![(v_number(1, 1), v_number(1, 1))]),
-                            v_number(1, 1)));
-    }
-
-    #[test]
-    fn test_sub() {
-        // Numbers
-        assert_eq!(Ok(v_number(15, 2)), Vm::sub(v_number(8, 1), v_number(1, 2)));
-        assert_err!(Vm::sub(v_number(8, 1), v_string("toto")));
-        // Strings
-        assert_eq!(Ok(v_string("hello ")),
-                   Vm::sub(v_string("hello world"), v_string("world")));
-        assert_eq!(Ok(v_string("helld")),
-                   Vm::sub(v_string("hello world"), v_string("lo wor")));
-        assert_eq!(Ok(v_string("hello world")),
-                   Vm::sub(v_string("hello world"), v_string("")));
-        assert_err!(Vm::sub(v_string("toto"), v_number(1, 1)));
-        // Boolean
-        assert_eq!(Ok(v_bool(false)), Vm::sub(v_bool(true), v_bool(true)));
-        assert_eq!(Ok(v_bool(true)), Vm::sub(v_bool(true), v_bool(false)));
-        assert_eq!(Ok(v_bool(true)), Vm::sub(v_bool(false), v_bool(true)));
-        assert_eq!(Ok(v_bool(false)), Vm::sub(v_bool(false), v_bool(false)));
-        assert_err!(Vm::sub(v_bool(false), v_number(1, 1)));
-        // Map
-        assert_eq!(Ok(v_map(vec![(v_number(1, 1), v_number(1, 1))])),
-                   Vm::sub(v_map(vec![(v_number(1, 1), v_number(1, 1)),
-                                      (v_number(2, 1), v_number(2, 1))]),
-                           v_map(vec![(v_number(2, 1), v_number(2, 1))])));
-        // Map
-        assert_eq!(Ok(v_map(vec![(v_number(1, 1), v_number(1, 1)),
-                                 (v_number(2, 1), v_number(2, 1))])),
-                   Vm::sub(v_map(vec![(v_number(1, 1), v_number(1, 1)),
-                                      (v_number(2, 1), v_number(2, 1))]),
-                           v_map(vec![(v_number(2, 1), v_number(2, 2))])));
-        assert_err!(Vm::sub(v_map(vec![(v_number(1, 1), v_number(1, 1))]),
                             v_number(1, 1)));
     }
 
