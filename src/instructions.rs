@@ -2,6 +2,14 @@ use ast::{Literal, Pattern};
 use std::rc::Rc;
 
 #[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
+pub enum Op {
+    Mul,
+    Div,
+    Add,
+    Sub,
+}
+
+#[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
 pub enum Instruction {
     Push(Literal),
     Fetch(String),
@@ -13,10 +21,7 @@ pub enum Instruction {
     IndexAccess,
     IndexAssign,
     Raise,
-    Add,
-    Sub,
-    Mul,
-    Div,
+    BinOp(Op),
     Nop,
 }
 

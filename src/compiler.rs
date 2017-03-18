@@ -84,10 +84,10 @@ fn compile_expression<'a>(expression: &'a Expression) -> InstructionSequence {
 
 fn compile_binop(op: &str) -> Instruction {
     match op {
-        "+" => Instruction::Add,
-        "-" => Instruction::Sub,
-        "/" => Instruction::Div,
-        "*" => Instruction::Mul,
+        "+" => Instruction::BinOp(Op::Add),
+        "-" => Instruction::BinOp(Op::Sub),
+        "/" => Instruction::BinOp(Op::Div),
+        "*" => Instruction::BinOp(Op::Mul),
         _ => panic!("Unsupported binary operation: {:?}", op),
     }
 }
@@ -109,10 +109,10 @@ mod test {
 
     #[test]
     fn compiles_binop() {
-        assert_eq!(compile_binop("+"), Instruction::Add);
-        assert_eq!(compile_binop("-"), Instruction::Sub);
-        assert_eq!(compile_binop("/"), Instruction::Div);
-        assert_eq!(compile_binop("*"), Instruction::Mul);
+        assert_eq!(compile_binop("+"), Instruction::BinOp(Op::Add));
+        assert_eq!(compile_binop("-"), Instruction::BinOp(Op::Sub));
+        assert_eq!(compile_binop("/"), Instruction::BinOp(Op::Div));
+        assert_eq!(compile_binop("*"), Instruction::BinOp(Op::Mul));
     }
 
     #[test]
@@ -128,7 +128,7 @@ mod test {
                                                e_literal(l_number(2, 1)))),
                    vec![Instruction::Push(Literal::Number(build_ratio(1, 1))),
                         Instruction::Push(Literal::Number(build_ratio(2, 1))),
-                        Instruction::Add])
+                        Instruction::BinOp(Op::Add)])
     }
 
     #[test]

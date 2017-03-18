@@ -3,15 +3,12 @@ use ast::*;
 use compiler::*;
 use instructions::*;
 use binding_map::BindingMap;
-use value::{Value, BinopResult};
+use value::Value;
 use closure::Closure;
 use exception_handler::ExceptionHandler;
 
 use std::rc::Rc;
 use std::cell::RefCell;
-use num::rational::Ratio;
-use num::bigint::{BigInt, ToBigInt};
-use num::{range, ToPrimitive, Zero};
 
 #[derive(Clone, Eq, Debug, PartialEq)]
 struct Frame {
@@ -139,21 +136,18 @@ impl Vm {
                     let raised_value = self.stack.pop().unwrap();
                     self.raise(raised_value);
                 }
-                Instruction::Add => {
+                Instruction::BinOp(op) => {
                     let right = self.stack.pop().unwrap();
                     let left = self.stack.pop().unwrap();
 
-                    if let Ok(result) = Vm::add(left, right) {
-                        self.stack.push(result);
-                    } else {
-                        // TODO: Raise
-                    }
-                }
-                Instruction::Sub => {
-                    let right = self.stack.pop().unwrap();
-                    let left = self.stack.pop().unwrap();
+                    let binop_result = match op {
+                        Op::Add => left.add(right),
+                        Op::Sub => left.sub(right),
+                        Op::Mul => left.mul(right),
+                        Op::Div => left.div(right),
+                    };
 
-                    if let Ok(result) = left.sub(right) {
+                    if let Ok(result) = binop_result {
                         self.stack.push(result);
                     } else {
                         // TODO: Raise
@@ -188,67 +182,6 @@ impl Vm {
                 }
                 _ => panic!("unknown instruction {:?}", instruction),
             };
-        }
-    }
-
-    fn add(left: Value, right: Value) -> BinopResult {
-        match (left, right) {
-            (Value::Number(lratio), Value::Number(rratio)) => Ok(Value::Number(lratio + rratio)),
-            (Value::CharString(lstr), Value::CharString(rstr)) => {
-                Ok(Value::CharString(lstr + &rstr))
-            }
-            (Value::Closure(_, _), Value::Closure(_, _)) => {
-                Err("Addition of closures is not supported".to_owned())
-            }
-            (Value::Boolean(lbool), Value::Boolean(rbool)) => Ok(Value::Boolean(lbool || rbool)),
-            (Value::Map(lmap), Value::Map(rmap)) => {
-                let mut result = (*lmap.borrow()).clone();
-                let mut rclone = (*rmap.borrow()).clone();
-                result.append(&mut rclone);
-                Ok(Value::Map(Rc::new(RefCell::new(result))))
-            }
-            (l, r) => Err(format!("Unsupported operation + for {:?} and {:?}", l, r)),
-        }
-    }
-
-    fn mul(left: Value, right: Value) -> BinopResult {
-        match (left, right) {
-            (Value::Number(lratio), Value::Number(rratio)) => Ok(Value::Number(lratio * rratio)),
-            (Value::CharString(str), Value::Number(ratio)) => {
-                let extended: String = range(BigInt::from(0), ratio.ceil().to_integer())
-                    .map(|_| &*str)
-                    .collect::<Vec<&str>>()
-                    .join("");
-                let truncation = (ratio.ceil() - ratio.clone()) *
-                                 Ratio::from_integer((str.len() as i64).to_bigint().unwrap());
-                let truncation_index = extended.len().to_bigint().unwrap() -
-                                       truncation.to_integer();
-                Ok(Value::CharString(extended[..truncation_index.to_usize().unwrap()].to_owned()))
-            }
-            (Value::Boolean(lbool), Value::Boolean(rbool)) => Ok(Value::Boolean(lbool & rbool)),
-            (l, r) => Err(format!("Unsupported operation * for {:?} and {:?}", l, r)),
-        }
-    }
-
-    fn div(left: Value, right: Value) -> BinopResult {
-        match (left, right) {
-            (Value::Number(lratio), Value::Number(rratio)) => {
-                if rratio.is_zero() {
-                    Err("Can't divide by zero".to_owned())
-                } else {
-                    Ok(Value::Number(lratio / rratio))
-                }
-            }
-            (Value::CharString(str), Value::Number(ratio)) => {
-                if ratio.is_zero() {
-                    Err("Can't divide by zero".to_owned())
-                } else {
-                    Vm::mul(Value::CharString(str.clone()),
-                            Value::Number(Ratio::from_integer(BigInt::from(1)) / ratio))
-                }
-            }
-
-            (l, r) => Err(format!("Unsupported operation / for {:?} and {:?}", l, r)),
         }
     }
 
@@ -477,79 +410,5 @@ mod test_vm {
         vm.run();
         assert_eq!(v_number(8, 1),
                    vm.frames.last().unwrap().bindings.fetch(&"res".to_owned()).unwrap().to_owned())
-    }
-}
-
-#[cfg(test)]
-mod test_binop {
-    use super::*;
-    use test_helpers::*;
-
-    #[test]
-    fn test_add() {
-        // Numbers
-        assert_eq!(Ok(v_number(17, 2)), Vm::add(v_number(8, 1), v_number(1, 2)));
-        assert_err!(Vm::add(v_number(8, 1), v_string("toto")));
-        // Strings
-        assert_eq!(Ok(v_string("hello world")),
-                   Vm::add(v_string("hello "), v_string("world")));
-        assert_err!(Vm::add(v_string("toto"), v_number(1, 1)));
-        // Boolean
-        assert_eq!(Ok(v_bool(true)), Vm::add(v_bool(true), v_bool(true)));
-        assert_eq!(Ok(v_bool(true)), Vm::add(v_bool(true), v_bool(false)));
-        assert_eq!(Ok(v_bool(true)), Vm::add(v_bool(false), v_bool(true)));
-        assert_eq!(Ok(v_bool(false)), Vm::add(v_bool(false), v_bool(false)));
-        assert_err!(Vm::add(v_bool(false), v_number(1, 1)));
-        // Map
-        assert_eq!(Ok(v_map(vec![(v_number(1, 1), v_number(1, 1)),
-                                 (v_number(2, 1), v_number(2, 1))])),
-                   Vm::add(v_map(vec![(v_number(1, 1), v_number(1, 1))]),
-                           v_map(vec![(v_number(2, 1), v_number(2, 1))])));
-        assert_err!(Vm::add(v_map(vec![(v_number(1, 1), v_number(1, 1))]),
-                            v_number(1, 1)));
-    }
-
-    #[test]
-    fn test_mul() {
-        // Numbers
-        assert_eq!(Ok(v_number(4, 1)), Vm::mul(v_number(8, 1), v_number(1, 2)));
-        assert_err!(Vm::mul(v_number(8, 1), v_string("toto")));
-        // Strings
-        assert_err!(Vm::mul(v_string("hello "), v_string("world")));
-        assert_eq!(Ok(v_string("totototo")),
-                   Vm::mul(v_string("to"), v_number(4, 1)));
-        assert_eq!(Ok(v_string("tototot")),
-                   Vm::mul(v_string("to"), v_number(7, 2)));
-        assert_eq!(Ok(v_string("tot")),
-                   Vm::mul(v_string("toto"), v_number(3, 4)));
-        assert_eq!(Ok(v_string("")), Vm::mul(v_string("toto"), v_number(0, 1)));
-        // Boolean
-        assert_eq!(Ok(v_bool(true)), Vm::mul(v_bool(true), v_bool(true)));
-        assert_eq!(Ok(v_bool(false)), Vm::mul(v_bool(true), v_bool(false)));
-        assert_eq!(Ok(v_bool(false)), Vm::mul(v_bool(false), v_bool(true)));
-        assert_eq!(Ok(v_bool(false)), Vm::mul(v_bool(false), v_bool(false)));
-        assert_err!(Vm::mul(v_bool(false), v_number(1, 1)));
-        // Map can't be multiplied?
-        assert_err!(Vm::mul(v_map(vec![]), v_map(vec![])));
-    }
-
-    #[test]
-    fn test_div() {
-        // Numbers
-        assert_eq!(Ok(v_number(16, 1)), Vm::div(v_number(8, 1), v_number(1, 2)));
-        assert_err!(Vm::div(v_number(8, 1), v_number(0, 1)));
-        assert_err!(Vm::div(v_number(8, 1), v_string("toto")));
-        // Strings
-        assert_err!(Vm::div(v_string("hello "), v_string("world")));
-        assert_eq!(Ok(v_string("t")), Vm::div(v_string("to"), v_number(2, 1)));
-        assert_eq!(Ok(v_string("tototot")),
-                   Vm::div(v_string("to"), v_number(2, 7)));
-        assert_eq!(Ok(v_string("tot")),
-                   Vm::div(v_string("toto"), v_number(4, 3)));
-        assert_err!(Vm::div(v_string("toto"), v_number(0, 1)));
-        // Boolean can't be divided
-        assert_err!(Vm::div(v_bool(true), v_bool(true)));
-        // Map can't be div?
-        assert_err!(Vm::div(v_map(vec![]), v_map(vec![])));
     }
 }
