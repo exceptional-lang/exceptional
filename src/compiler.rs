@@ -107,7 +107,6 @@ pub fn compile<'a>(statements: &'a Vec<Statement>) -> InstructionSequence {
 mod test {
     use super::*;
     use test_helpers::*;
-    use std::rc::Rc;
 
     #[test]
     fn compiles_binop() {

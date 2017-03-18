@@ -6,6 +6,7 @@ mod test_helpers;
 
 mod ast;
 mod instructions;
+mod exception_handler;
 mod value;
 mod grammar;
 mod vm;

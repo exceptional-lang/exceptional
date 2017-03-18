@@ -4,7 +4,6 @@ use ast::*;
 use num::rational::Ratio;
 use num::BigInt;
 use grammar::*;
-use vm::*;
 use value::Value;
 use std::rc::*;
 use std::cell::RefCell;

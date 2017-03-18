@@ -25,7 +25,7 @@ impl Closure {
     }
 
     pub fn init_map(&self, local_bindings: Vec<(String, Value)>) -> BindingMap {
-        let mut map = BindingMap::new(Some(&self.parent_bindings));
+        let map = BindingMap::new(Some(&self.parent_bindings));
         local_bindings.into_iter().fold(map, |mut map, (arg_name, value)| {
             map.local_assign(&arg_name, value);
             map
@@ -40,7 +40,7 @@ mod test {
 
     #[test]
     fn enclose_assigns_new_bidings() {
-        let mut parent_map = BindingMap::new(None);
+        let parent_map = BindingMap::new(None);
         let closure = Closure::new(Rc::new(vec![]), &parent_map);
 
         let new_map = closure.init_map(vec![("toto".to_owned(), v_number(1, 1))]);
