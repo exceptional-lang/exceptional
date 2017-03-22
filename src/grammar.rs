@@ -93,6 +93,12 @@ mod test_expressions {
                    e_literal(l_function(vec!["a".to_owned(), "b".to_owned()],
                                         vec![s_assign(&"c", l_number(1, 1))])))
     }
+
+    #[test]
+    fn parses_import() {
+        assert_eq!(parse_expression(&"import(\"toto\")"),
+                   e_import("toto".to_owned()))
+    }
 }
 
 #[cfg(test)]

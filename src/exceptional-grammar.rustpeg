@@ -49,8 +49,12 @@ callArguments -> Vec<Expression>
 
 #[pub]
 expression -> Expression
-  = functionDefinition
+  = importExpression
+  / functionDefinition
   / addition
+
+importExpression -> Expression
+  = import lparen string:rawString rparen { Expression::Import(string) }
 
 addition -> Expression
   = left:multiplication op:addition_op right:addition {
@@ -219,6 +223,9 @@ end
 
 raise
   = "raise"
+
+import
+  = "import"
 
 rescue
   = "rescue"

@@ -22,6 +22,7 @@ pub enum Instruction {
     IndexAssign,
     Raise,
     BinOp(Op),
+    Import(String),
     Nop,
 }
 

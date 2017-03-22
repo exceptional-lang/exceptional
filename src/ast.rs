@@ -25,6 +25,7 @@ pub enum Expression {
     Literal(Literal),
     Identifier(String),
     IndexAccess(Box<Expression>, Box<Expression>),
+    Import(String),
 }
 
 #[derive(Clone, Eq, Debug, Hash, Ord, PartialEq, PartialOrd)]

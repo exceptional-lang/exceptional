@@ -79,6 +79,7 @@ fn compile_expression(expression: &Expression) -> InstructionSequence {
             instructions.push(Instruction::IndexAccess);
             instructions
         }
+        &Expression::Import(ref name) => vec![Instruction::Import(name.clone())],
     }
 }
 
@@ -144,5 +145,11 @@ mod test {
                    vec![Instruction::Fetch("toto".to_owned()),
                         Instruction::Push(l_string("titi")),
                         Instruction::IndexAccess])
+    }
+
+    #[test]
+    fn compiles_import_expressions() {
+        assert_eq!(compile_expression(&e_import("toto".to_owned())),
+                   vec![Instruction::Import("toto".to_owned())])
     }
 }

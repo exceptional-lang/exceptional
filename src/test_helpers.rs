@@ -88,6 +88,10 @@ pub fn e_index_access(target: Expression, property: Expression) -> Expression {
     Expression::IndexAccess(Box::new(target), Box::new(property))
 }
 
+pub fn e_import(name: String) -> Expression {
+    Expression::Import(name)
+}
+
 pub fn build_ratio(num: i64, denom: i64) -> Ratio<BigInt> {
     Ratio::new(BigInt::from(num), BigInt::from(denom))
 }
