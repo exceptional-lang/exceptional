@@ -259,12 +259,12 @@ impl Vm {
 
 
 #[cfg(test)]
-mod test_vm {
+mod test {
     use super::*;
     use test_helpers::*;
 
     #[test]
-    fn test_run_simple() {
+    fn run_simple() {
         let mut vm = Vm::new("let a = 1\
         let b = { \"a\" => 1 }");
         vm.run();
@@ -276,7 +276,7 @@ mod test_vm {
     }
 
     #[test]
-    fn test_function_call() {
+    fn function_call() {
         let source = "let a = \"\"
             let x = def() do
               a = 1
@@ -290,7 +290,7 @@ mod test_vm {
     }
 
     #[test]
-    fn test_function_call_with_args() {
+    fn function_call_with_args() {
         let source = "let a = \"\"
             let b = \"\"
             let x = def(c, d) do
@@ -309,7 +309,7 @@ mod test_vm {
 
     #[test]
     #[should_panic(expected="expected a closure")]
-    fn test_calling_non_function() {
+    fn calling_non_function() {
         let source = "let x = \"\"
             x()";
         let mut vm = Vm::new(source);
@@ -318,7 +318,7 @@ mod test_vm {
 
     #[test]
     #[should_panic(expected="wrong number of arguments")]
-    fn test_function_with_wrong_arg_count() {
+    fn function_with_wrong_arg_count() {
         let source = "let x = def(a, b) do
             end
             x(1)";
@@ -328,7 +328,7 @@ mod test_vm {
     }
 
     #[test]
-    fn test_basic_rescue() {
+    fn basic_rescue() {
         let source =
             "let a = \"\"
             rescue(id) do
@@ -346,7 +346,7 @@ mod test_vm {
     }
 
     #[test]
-    fn test_rescue_map() {
+    fn rescue_map() {
         let source =
             "let a = \"\"
             rescue({\"b\" => id}) do
@@ -364,7 +364,7 @@ mod test_vm {
     }
 
     #[test]
-    fn test_maps() {
+    fn maps() {
         let source = "let a = { \"c\" => 1 }
             a[\"b\"] = 2
             let b = a[\"b\"]
@@ -387,7 +387,7 @@ mod test_vm {
     }
 
     #[test]
-    fn test_fibonacci() {
+    fn fibonacci() {
         let source = "let fib = def(k) do
           rescue({ \"m\" => m, \"k\" => 0 }) do
             raise({ \"result\" => m })

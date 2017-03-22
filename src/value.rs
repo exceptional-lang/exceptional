@@ -55,19 +55,23 @@ impl Value {
 
     pub fn mul(&self, right: Value) -> BinopResult {
         match (self, right) {
-            (&Value::Number(ref lratio), Value::Number(ref rratio)) => Ok(Value::Number(lratio * rratio)),
+            (&Value::Number(ref lratio), Value::Number(ref rratio)) => {
+                Ok(Value::Number(lratio * rratio))
+            }
             (&Value::CharString(ref str), Value::Number(ref ratio)) => {
                 let extended: String = range(BigInt::from(0), ratio.ceil().to_integer())
                     .map(|_| str.clone())
                     .collect::<Vec<String>>()
                     .join("");
                 let truncation = (ratio.ceil() - ratio.clone()) *
-                    Ratio::from_integer((str.len() as i64).to_bigint().unwrap());
+                                 Ratio::from_integer((str.len() as i64).to_bigint().unwrap());
                 let truncation_index = extended.len().to_bigint().unwrap() -
-                    truncation.to_integer();
+                                       truncation.to_integer();
                 Ok(Value::CharString(extended[..truncation_index.to_usize().unwrap()].to_owned()))
             }
-            (&Value::Boolean(ref lbool), Value::Boolean(ref rbool)) => Ok(Value::Boolean(lbool & rbool)),
+            (&Value::Boolean(ref lbool), Value::Boolean(ref rbool)) => {
+                Ok(Value::Boolean(lbool & rbool))
+            }
             (l, r) => Err(format!("Unsupported operation * for {:?} and {:?}", l, r)),
         }
     }
@@ -95,7 +99,9 @@ impl Value {
 
     pub fn add(&self, right: Value) -> BinopResult {
         match (self, right) {
-            (&Value::Number(ref lratio), Value::Number(ref rratio)) => Ok(Value::Number(lratio + rratio)),
+            (&Value::Number(ref lratio), Value::Number(ref rratio)) => {
+                Ok(Value::Number(lratio + rratio))
+            }
             (&Value::CharString(ref lstr), Value::CharString(ref rstr)) => {
                 Ok(Value::CharString((*lstr).clone() + rstr))
             }
@@ -156,12 +162,9 @@ mod test {
         assert_err!(v_number(8, 1).mul(v_string("toto")));
         // Strings
         assert_err!(v_string("hello ").mul(v_string("world")));
-        assert_eq!(Ok(v_string("totototo")),
-        v_string("to").mul(v_number(4, 1)));
-        assert_eq!(Ok(v_string("tototot")),
-        v_string("to").mul(v_number(7, 2)));
-        assert_eq!(Ok(v_string("tot")),
-        v_string("toto").mul(v_number(3, 4)));
+        assert_eq!(Ok(v_string("totototo")), v_string("to").mul(v_number(4, 1)));
+        assert_eq!(Ok(v_string("tototot")), v_string("to").mul(v_number(7, 2)));
+        assert_eq!(Ok(v_string("tot")), v_string("toto").mul(v_number(3, 4)));
         assert_eq!(Ok(v_string("")), v_string("toto").mul(v_number(0, 1)));
         // Boolean
         assert_eq!(Ok(v_bool(true)), v_bool(true).mul(v_bool(true)));
@@ -182,10 +185,8 @@ mod test {
         // Strings
         assert_err!(v_string("hello ").div(v_string("world")));
         assert_eq!(Ok(v_string("t")), v_string("to").div(v_number(2, 1)));
-        assert_eq!(Ok(v_string("tototot")),
-        v_string("to").div(v_number(2, 7)));
-        assert_eq!(Ok(v_string("tot")),
-        v_string("toto").div(v_number(4, 3)));
+        assert_eq!(Ok(v_string("tototot")), v_string("to").div(v_number(2, 7)));
+        assert_eq!(Ok(v_string("tot")), v_string("toto").div(v_number(4, 3)));
         assert_err!(v_string("toto").div(v_number(0, 1)));
         // Boolean can't be divided
         assert_err!(v_bool(true).div(v_bool(true)));
@@ -200,7 +201,7 @@ mod test {
         assert_err!(v_number(8, 1).add(v_string("toto")));
         // Strings
         assert_eq!(Ok(v_string("hello world")),
-        v_string("hello ").add(v_string("world")));
+                   v_string("hello ").add(v_string("world")));
         assert_err!(v_string("toto").add(v_number(1, 1)));
         // Boolean
         assert_eq!(Ok(v_bool(true)), v_bool(true).add(v_bool(true)));
@@ -211,9 +212,8 @@ mod test {
         // Map
         assert_eq!(Ok(v_map(vec![(v_number(1, 1), v_number(1, 1)),
                                  (v_number(2, 1), v_number(2, 1))])),
-        v_map(vec![(v_number(1, 1), v_number(1, 1))]).add(
-                v_map(vec![(v_number(2, 1), v_number(2, 1))])));
-        assert_err!(v_map(vec![(v_number(1, 1), v_number(1, 1))]).add(
-                            v_number(1, 1)));
+                   v_map(vec![(v_number(1, 1), v_number(1, 1))])
+                       .add(v_map(vec![(v_number(2, 1), v_number(2, 1))])));
+        assert_err!(v_map(vec![(v_number(1, 1), v_number(1, 1))]).add(v_number(1, 1)));
     }
 }

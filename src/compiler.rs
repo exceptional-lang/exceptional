@@ -2,7 +2,7 @@ use ast::*;
 use instructions::*;
 use std::rc::Rc;
 
-fn compile_statement<'a>(statement: &'a Statement) -> InstructionSequence {
+fn compile_statement(statement: &Statement) -> InstructionSequence {
     // TODO: Clear stack at start of statement?
     match statement {
         &Statement::Assign(local, ref binding_name, ref expression) => {
@@ -45,7 +45,7 @@ fn compile_statement<'a>(statement: &'a Statement) -> InstructionSequence {
     }
 }
 
-fn compile_expression<'a>(expression: &'a Expression) -> InstructionSequence {
+fn compile_expression(expression: &Expression) -> InstructionSequence {
     match expression {
         &Expression::Literal(ref literal) => {
             match literal {
@@ -92,7 +92,7 @@ fn compile_binop(op: &str) -> Instruction {
     }
 }
 
-pub fn compile<'a>(statements: &'a Vec<Statement>) -> InstructionSequence {
+pub fn compile(statements: &Vec<Statement>) -> InstructionSequence {
     let mut instructions = InstructionSequence::new();
 
     for statement in statements.iter() {
