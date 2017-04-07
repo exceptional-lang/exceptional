@@ -54,7 +54,7 @@ expression -> Expression
   / addition
 
 importExpression -> Expression
-  = import lparen string:rawString rparen { Expression::Import(string) }
+  = import lparen exp:expression rparen { Expression::Import(Box::new(exp)) }
 
 addition -> Expression
   = left:multiplication op:addition_op right:addition {

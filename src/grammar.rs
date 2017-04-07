@@ -97,7 +97,7 @@ mod test_expressions {
     #[test]
     fn parses_import() {
         assert_eq!(parse_expression(&"import(\"toto\")"),
-                   e_import("toto".to_owned()))
+                   e_import(e_literal(l_string(&"toto"))))
     }
 }
 

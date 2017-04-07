@@ -5,6 +5,7 @@ extern crate num;
 mod test_helpers;
 
 mod ast;
+mod native;
 mod instructions;
 mod exception_handler;
 mod value;

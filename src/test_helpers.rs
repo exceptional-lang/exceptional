@@ -1,10 +1,13 @@
 #[cfg(test)]
 
 use ast::*;
-use num::rational::Ratio;
-use num::BigInt;
+use binding_map::BindingMap;
 use grammar::*;
 use value::Value;
+use closure::Closure;
+use instructions::*;
+use num::rational::Ratio;
+use num::BigInt;
 use std::rc::*;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -88,8 +91,8 @@ pub fn e_index_access(target: Expression, property: Expression) -> Expression {
     Expression::IndexAccess(Box::new(target), Box::new(property))
 }
 
-pub fn e_import(name: String) -> Expression {
-    Expression::Import(name)
+pub fn e_import(name: Expression) -> Expression {
+    Expression::Import(Box::new(name))
 }
 
 pub fn build_ratio(num: i64, denom: i64) -> Ratio<BigInt> {
@@ -125,6 +128,15 @@ pub fn v_map(pairs: Vec<(Value, Value)>) -> Value {
         .map(|(key, value)| (key, value))
         .collect::<BTreeMap<_, _>>();
     Value::Map(Rc::new(RefCell::new(map)))
+}
+
+pub fn v_closure(args: Vec<String>,
+                 insns: InstructionSequence,
+                 parent_bindings: Option<&BindingMap>)
+                 -> Value {
+    let bindings = BindingMap::new(parent_bindings);
+    let closure = Closure::new(Rc::new(insns), &bindings);
+    Value::Closure(Rc::new(Box::new(args)), Rc::new(closure))
 }
 
 macro_rules! assert_err {

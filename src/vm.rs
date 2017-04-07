@@ -5,6 +5,7 @@ use instructions::*;
 use binding_map::BindingMap;
 use value::Value;
 use closure::Closure;
+use native::find_lib;
 use exception_handler::ExceptionHandler;
 
 use std::rc::Rc;
@@ -43,6 +44,18 @@ impl Vm {
 
         let vm = Vm {
             instructions: Rc::new(instructions),
+            pc: 0,
+            stack: Vec::new(),
+            frames: vec![frame],
+        };
+        vm
+    }
+
+    pub fn empty() -> Vm {
+        let map = BindingMap::new(None);
+        let frame = Frame::new(map);
+        let vm = Vm {
+            instructions: Rc::new(vec![]),
             pc: 0,
             stack: Vec::new(),
             frames: vec![frame],
@@ -179,6 +192,14 @@ impl Vm {
                         }
                         v => panic!("can't use index access for {:?}", v), // TODO: Raise
                     };
+                }
+                Instruction::Import => {
+                    let name = self.stack.pop().unwrap();
+                    if let Value::CharString(ref str) = name {
+
+                    } else {
+                        panic!("import value must be a string"); // TODO: Raise
+                    }
                 }
                 _ => panic!("unknown instruction {:?}", instruction),
             };
