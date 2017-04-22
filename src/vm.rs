@@ -117,7 +117,7 @@ impl Vm {
                         .collect();
 
                     self.reset_instructions(closure.instructions.clone(),
-                                            closure.init_map(local_bindings));
+                                            Some(closure.init_map(local_bindings)));
                 }
                 Instruction::Fetch(ref binding_name) => {
                     let value = self.frames.last().unwrap().bindings.fetch(binding_name).unwrap();
@@ -196,14 +196,26 @@ impl Vm {
                 Instruction::Import => {
                     let name = self.stack.pop().unwrap();
                     if let Value::CharString(ref str) = name {
-
+                        if let Some(lib) = find_lib(str) {
+                            self.stack.push(lib.clone());
+                        }
                     } else {
                         panic!("import value must be a string"); // TODO: Raise
                     }
                 }
+                Instruction::Native(native_fn) => {
+                    println!("Starting native code");
+                    let instructions = native_fn.call(self);
+                    println!("Finished native code");
+                    self.reset_instructions(Rc::new(instructions), None)
+                }
                 _ => panic!("unknown instruction {:?}", instruction),
             };
         }
+    }
+
+    pub fn push(&mut self, value: Value) {
+        self.stack.push(value);
     }
 
     fn raise(&mut self, value: Value) {
@@ -239,15 +251,17 @@ impl Vm {
             });
 
         if let Some((instructions, map)) = matched_handler {
-            println!("insns: {:?}", instructions);
-            self.reset_instructions(instructions, map);
+            println!("instructions: {:?}", instructions);
+            self.reset_instructions(instructions, Some(map));
         } else {
             println!("Uncaught exception ignored: {:?}", value);
         }
     }
 
-    fn reset_instructions(&mut self, instructions: Rc<InstructionSequence>, map: BindingMap) {
-        self.frames.push(Frame::new(map));
+    fn reset_instructions(&mut self, instructions: Rc<InstructionSequence>, binding_map: Option<BindingMap>) {
+        if let Some(map) = binding_map {
+            self.frames.push(Frame::new(map));
+        }
         self.instructions = instructions.clone();
         self.pc = 0;
         println!("instructions have been reset!");
@@ -430,6 +444,21 @@ mod test {
         let mut vm = Vm::new(source);
         vm.run();
         assert_eq!(v_number(8, 1),
+                   vm.frames.last().unwrap().bindings.fetch(&"res".to_owned()).unwrap().to_owned())
+    }
+
+    #[test]
+    fn import_io() {
+        let source = "let a = import(\"io\")
+             let res = \"\"\
+             rescue({\"io.result\" => r}) do
+               res = r
+             end
+             a.read(\"/dev/null\")";
+
+        let mut vm = Vm::new(source);
+        vm.run();
+        assert_eq!(v_string(""),
                    vm.frames.last().unwrap().bindings.fetch(&"res".to_owned()).unwrap().to_owned())
     }
 }

@@ -10,7 +10,14 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::error::Error;
 
-fn read_file(vm: &mut Vm) {}
+fn read_file(vm: &mut Vm) -> InstructionSequence {
+    let btreemap = vec![
+        (Value::CharString("io.result".to_owned()), Value::CharString("".to_owned()))
+    ].into_iter().collect();
+    let result = Value::Map(Rc::new(RefCell::new(btreemap)));
+    vm.push(result);
+    vec![Instruction::Raise]
+}
 
 fn read_file_contents(name: String) -> Result<String, String> {
     let mut file = match File::open(name) {
@@ -42,8 +49,8 @@ fn io() -> Value {
     Value::Map(Rc::new(RefCell::new(map)))
 }
 
-pub fn find_lib(name: String) -> Option<Value> {
-    match &*name {
+pub fn find_lib(name: &str) -> Option<Value> {
+    match name {
         "io" => Some(io()),
         _ => None,
     }
@@ -57,7 +64,7 @@ mod test {
 
     #[test]
     fn find_lib_returns_none_when_not_found() {
-        assert_eq!(None, find_lib("oops".to_owned()));
+        assert_eq!(None, find_lib("oops"));
     }
 
     #[test]
@@ -67,7 +74,7 @@ mod test {
                                                                              NativeCode))],
                                 None);
         let lib = v_map(vec![(v_string("read"), closure)]);
-        assert_eq!(Some(lib), find_lib("io".to_owned()));
+        assert_eq!(Some(lib), find_lib("io"));
     }
 
     #[test]

@@ -3,6 +3,7 @@ use std::rc::Rc;
 use vm::Vm;
 use std::cmp::Ordering;
 use std::fmt;
+use std::mem::transmute;
 
 #[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
 pub enum Op {
@@ -12,16 +13,23 @@ pub enum Op {
     Sub,
 }
 
-pub type NativeCode = *const fn(&mut Vm);
+pub type NativeCode = *const fn(&mut Vm) -> InstructionSequence;
 
 #[derive(Clone)]
 pub struct NativeFunction {
-    function: *const fn(&mut Vm),
+    function: NativeCode,
 }
 
 impl NativeFunction {
-    pub fn new(f: *const fn(&mut Vm)) -> Self {
+    pub fn new(f: NativeCode) -> Self {
         NativeFunction { function: f }
+    }
+
+    pub fn call(&self, vm: &mut Vm) -> InstructionSequence {
+        unsafe {
+            let func = transmute::<NativeCode, fn(&mut Vm) -> InstructionSequence>(self.function);
+            func(vm)
+        }
     }
 }
 
@@ -76,8 +84,12 @@ pub type InstructionSequence = Vec<Instruction>;
 mod test {
     use super::*;
 
-    fn mock() {}
-    fn other_mock() {}
+    fn mock(_: &mut Vm) -> InstructionSequence {
+        vec![]
+    }
+    fn other_mock(_: &mut Vm) -> InstructionSequence {
+        vec![]
+    }
 
     #[test]
     fn compare_native_functions() {
@@ -85,5 +97,12 @@ mod test {
                    NativeFunction::new(mock as NativeCode));
         assert!(NativeFunction::new(mock as NativeCode) !=
                 NativeFunction::new(other_mock as NativeCode));
+    }
+
+    #[test]
+    fn call_native_function() {
+        let mut vm = Vm::new(&"");
+        assert_eq!(vec![] as InstructionSequence,
+                   NativeFunction::new(mock as NativeCode).call(&mut vm));
     }
 }
