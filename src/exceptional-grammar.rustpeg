@@ -28,8 +28,8 @@ assignStatement -> Statement
     }
 
 callStatement -> Statement
-  = ident:identifier lparen args:callArguments rparen {
-      Statement::Call(ident, args)
+  = exp:expression lparen args:callArguments rparen {
+      Statement::Call(Box::new(exp), args)
     }
 
 raiseStatement -> Statement
@@ -84,6 +84,7 @@ accessExpression -> Expression
 
 propertyAccess -> Expression
   = lbracket property:addition rbracket { property }
+  / dot ident:identifier { Expression::Literal(Literal::CharString(ident)) }
 
 primary -> Expression
   = val:literal { Expression::Literal(val) }
@@ -250,6 +251,9 @@ rbracket
 
 fatArrow
   = __ "=>" __
+
+dot
+  = "."
 
 eolChar
   = [\n\r\u{2028}\u{2029}]

@@ -14,11 +14,11 @@ fn compile_statement(statement: &Statement) -> InstructionSequence {
             instructions.push(instruction);
             instructions
         }
-        &Statement::Call(ref binding_name, ref expressions) => {
+        &Statement::Call(ref target, ref expressions) => {
             let mut instructions = expressions.iter()
                 .flat_map(|exp| compile_expression(exp))
                 .collect::<InstructionSequence>();
-            instructions.push(Instruction::Fetch(binding_name.to_owned()));
+            instructions.extend(compile_expression(target).iter().cloned());
             instructions.push(Instruction::Call(expressions.len()));
             instructions
         }

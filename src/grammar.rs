@@ -73,6 +73,10 @@ mod test_expressions {
         assert_eq!(parse_expression(&"toto[titi][tutu]"),
                    e_index_access(e_index_access(e_identifier(&"toto"), e_identifier(&"titi")),
                                   e_identifier(&"tutu")));
+        assert_eq!(parse_expression(&"toto.titi.tutu"),
+                   e_index_access(e_index_access(e_identifier(&"toto"),
+                                                 e_literal(l_string(&"titi"))),
+                                  e_literal(l_string(&"tutu"))));
     }
 
     #[test]
@@ -121,13 +125,20 @@ mod test_statements {
 
     #[test]
     fn parses_calls() {
-        assert_eq!(parse_statements("a()"), [s_call(&"a", vec![])])
+        assert_eq!(parse_statements("a()"),
+                   [s_call(e_identifier(&"a"), vec![])]);
+        assert_eq!(parse_statements(&"toto.titi()"),
+                   vec![s_call(e_index_access(e_identifier(&"toto"),
+                                              e_literal(l_string(&"titi"))),
+                               vec![])]);
+
     }
 
     #[test]
     fn parses_calls_with_simple_args() {
         assert_eq!(parse_statements("a(1, b)"),
-                   [s_call(&"a", vec![e_literal(l_number(1, 1)), e_identifier(&"b")])])
+                   [s_call(e_identifier(&"a"),
+                           vec![e_literal(l_number(1, 1)), e_identifier(&"b")])])
     }
 
     #[test]
@@ -135,7 +146,7 @@ mod test_statements {
         let args = vec![e_binop("+", e_literal(l_number(1, 1)), e_literal(l_number(2, 1))),
                         e_literal(l_function(vec!["x".to_owned()], vec![]))];
         assert_eq!(parse_statements("a(1 + 2, def(x) do end)"),
-                   [s_call(&"a", args)])
+                   [s_call(e_identifier(&"a"), args)])
     }
 
     #[test]

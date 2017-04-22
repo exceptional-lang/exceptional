@@ -72,7 +72,7 @@ impl Vm {
                 println!("next instruction: {:?}", i);
                 i
             } else {
-                println!("instruction not found, terminating");
+                println!("instruction {:?} not found, terminating", insn_result);
                 break;
             };
 

@@ -63,8 +63,8 @@ pub fn s_index_assign(target: Expression, property: Expression, value: Expressio
     Statement::IndexAssign(Box::new(target), Box::new(property), Box::new(value))
 }
 
-pub fn s_call(name: &str, args: Vec<Expression>) -> Statement {
-    Statement::Call(name.to_owned(), args)
+pub fn s_call(target: Expression, args: Vec<Expression>) -> Statement {
+    Statement::Call(Box::new(target), args)
 }
 
 pub fn s_raise(exp: Expression) -> Statement {
