@@ -3,7 +3,6 @@ use instructions::*;
 use std::rc::Rc;
 
 fn compile_statement(statement: &Statement) -> InstructionSequence {
-    // TODO: Clear stack at start of statement?
     match statement {
         &Statement::Assign(local, ref binding_name, ref expression) => {
             let mut instructions = compile_expression(expression);
@@ -15,7 +14,8 @@ fn compile_statement(statement: &Statement) -> InstructionSequence {
             instructions
         }
         &Statement::Call(ref target, ref expressions) => {
-            let mut instructions = expressions.iter()
+            let mut instructions = expressions
+                .iter()
                 .flat_map(|exp| compile_expression(exp))
                 .collect::<InstructionSequence>();
             instructions.extend(compile_expression(target).iter().cloned());
@@ -23,7 +23,8 @@ fn compile_statement(statement: &Statement) -> InstructionSequence {
             instructions
         }
         &Statement::Rescue(ref pattern, ref statements) => {
-            let instructions = statements.iter()
+            let instructions = statements
+                .iter()
                 .flat_map(|stmt| compile_statement(stmt))
                 .collect::<InstructionSequence>();
 
@@ -50,12 +51,13 @@ fn compile_expression(expression: &Expression) -> InstructionSequence {
         &Expression::Literal(ref literal) => {
             match literal {
                 &Literal::Map(ref pairs) => {
-                    let mut map_instructions = pairs.iter()
+                    let mut map_instructions = pairs
+                        .iter()
                         .flat_map(|&(ref key, ref value)| {
-                            let mut insns = compile_expression(key);
-                            insns.extend(compile_expression(value).iter().cloned());
-                            insns
-                        })
+                                      let mut insns = compile_expression(key);
+                                      insns.extend(compile_expression(value).iter().cloned());
+                                      insns
+                                  })
                         .collect::<InstructionSequence>();
 
                     map_instructions.push(Instruction::MakeMap(pairs.len()));
@@ -101,6 +103,7 @@ pub fn compile(statements: &Vec<Statement>) -> InstructionSequence {
     let mut instructions = InstructionSequence::new();
 
     for statement in statements.iter() {
+        instructions.push(Instruction::Clear);
         instructions.extend(compile_statement(&statement).iter().cloned());
     }
 

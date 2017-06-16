@@ -62,6 +62,7 @@ impl fmt::Debug for NativeFunction {
 
 #[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
 pub enum Instruction {
+    Clear,
     Push(Literal),
     Fetch(String),
     LocalAssign(String),

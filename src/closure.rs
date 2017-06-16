@@ -26,10 +26,12 @@ impl Closure {
 
     pub fn init_map(&self, local_bindings: Vec<(String, Value)>) -> BindingMap {
         let map = BindingMap::new(Some(&self.parent_bindings));
-        local_bindings.into_iter().fold(map, |mut map, (arg_name, value)| {
-            map.local_assign(&arg_name, value);
-            map
-        })
+        local_bindings
+            .into_iter()
+            .fold(map, |mut map, (arg_name, value)| {
+                map.local_assign(&arg_name, value);
+                map
+            })
     }
 }
 

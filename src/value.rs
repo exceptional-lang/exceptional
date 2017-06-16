@@ -31,9 +31,7 @@ impl Value {
                     Ok(Value::CharString("".to_owned()))
                 }
             }
-            (&Value::Closure(_, _), Value::Closure(_, _)) => {
-                Err(format!("Subtraction of closures is not supported"))
-            }
+            (&Value::Closure(_, _), Value::Closure(_, _)) => Err(format!("Subtraction of closures is not supported")),
             (&Value::Boolean(ref lbool), Value::Boolean(ref rbool)) => {
                 Ok(Value::Boolean(lbool ^ rbool))
             }
@@ -42,10 +40,10 @@ impl Value {
                     .clone()
                     .into_iter()
                     .filter(|&(ref key, ref value)| if let Some(rvalue) = rmap.borrow().get(key) {
-                        rvalue != value
-                    } else {
-                        true
-                    })
+                                rvalue != value
+                            } else {
+                                true
+                            })
                     .collect();
                 Ok(Value::Map(Rc::new(RefCell::new(result))))
             }
@@ -145,13 +143,15 @@ mod test {
         assert_err!(v_bool(false).sub(v_number(1, 1)));
         // Map
         assert_eq!(Ok(v_map(vec![(v_number(1, 1), v_number(1, 1))])),
-                   v_map(vec![(v_number(1, 1), v_number(1, 1)), (v_number(2, 1), v_number(2, 1))])
-                       .sub(v_map(vec![(v_number(2, 1), v_number(2, 1))])));
+                   v_map(vec![(v_number(1, 1), v_number(1, 1)),
+                              (v_number(2, 1), v_number(2, 1))])
+                           .sub(v_map(vec![(v_number(2, 1), v_number(2, 1))])));
         // Map
         assert_eq!(Ok(v_map(vec![(v_number(1, 1), v_number(1, 1)),
                                  (v_number(2, 1), v_number(2, 1))])),
-                   v_map(vec![(v_number(1, 1), v_number(1, 1)), (v_number(2, 1), v_number(2, 1))])
-                       .sub(v_map(vec![(v_number(2, 1), v_number(2, 2))])));
+                   v_map(vec![(v_number(1, 1), v_number(1, 1)),
+                              (v_number(2, 1), v_number(2, 1))])
+                           .sub(v_map(vec![(v_number(2, 1), v_number(2, 2))])));
         assert_err!(v_map(vec![(v_number(1, 1), v_number(1, 1))]).sub(v_number(1, 1)));
     }
 
@@ -212,8 +212,10 @@ mod test {
         // Map
         assert_eq!(Ok(v_map(vec![(v_number(1, 1), v_number(1, 1)),
                                  (v_number(2, 1), v_number(2, 1))])),
-                   v_map(vec![(v_number(1, 1), v_number(1, 1))])
-                       .add(v_map(vec![(v_number(2, 1), v_number(2, 1))])));
+                   v_map(vec![(v_number(1, 1), v_number(1, 1))]).add(v_map(vec![(v_number(2,
+                                                                                          1),
+                                                                                 v_number(2,
+                                                                                          1))])));
         assert_err!(v_map(vec![(v_number(1, 1), v_number(1, 1))]).add(v_number(1, 1)));
     }
 }

@@ -79,9 +79,13 @@ impl ExceptionHandler {
                 for &(ref key, ref pattern_value) in pairs.iter() {
                     let key_as_value = ExceptionHandler::pattern_key_to_value(key);
 
-                    let maybe_nested_bindings = btreemap.borrow()
-                        .get(&Rc::new(key_as_value))
-                        .and_then(|value| ExceptionHandler::match_pattern(pattern_value, value));
+                    let maybe_nested_bindings =
+                        btreemap
+                            .borrow()
+                            .get(&Rc::new(key_as_value))
+                            .and_then(|value| {
+                                          ExceptionHandler::match_pattern(pattern_value, value)
+                                      });
 
                     if let None = maybe_nested_bindings {
                         return None;
@@ -107,7 +111,9 @@ impl ExceptionHandler {
     }
 
     fn match_identifier(name: &String, value: &Value) -> MatchedBindings {
-        let bindings: BTreeMap<_, _> = vec![(name.to_owned(), value.clone())].into_iter().collect();
+        let bindings: BTreeMap<_, _> = vec![(name.to_owned(), value.clone())]
+            .into_iter()
+            .collect();
         Some(bindings)
     }
 
@@ -162,8 +168,8 @@ mod test {
                                                                  .to_owned()))])),
                                   Closure::blank());
         assert_eq!(Some(vec![("toto".to_owned(), v_string("titi"))]
-                       .into_iter()
-                       .collect()),
+                            .into_iter()
+                            .collect()),
                    handler.matches(v_map(vec![(v_number(1, 1), v_string("titi"))])));
         assert_eq!(None,
                    handler.matches(v_map(vec![(v_string("titi"), v_number(2, 1))])));
@@ -183,8 +189,8 @@ mod test {
                                                                  .to_owned()))])),
                                   Closure::blank());
         assert_eq!(Some(vec![("toto".to_owned(), v_string("titi"))]
-                       .into_iter()
-                       .collect()),
+                            .into_iter()
+                            .collect()),
                    handler.matches(v_map(vec![(v_number(1, 1), v_string("titi")),
                                               (v_number(2, 1), v_string("titi"))])));
         assert_eq!(None,
@@ -194,14 +200,13 @@ mod test {
 
     #[test]
     fn matches_recursive_maps() {
-        let pattern =
-            Pattern::Map(vec![(Pattern::Number(build_ratio(1, 1)),
-                               Pattern::Map(vec![(Pattern::Number(build_ratio(2, 1)),
+        let pattern = Pattern::Map(vec![(Pattern::Number(build_ratio(1, 1)),
+                                         Pattern::Map(vec![(Pattern::Number(build_ratio(2, 1)),
                                                   Pattern::Identifier("toto".to_owned()))]))]);
         let handler = ExceptionHandler::new(Rc::new(pattern), Closure::blank());
         assert_eq!(Some(vec![("toto".to_owned(), v_string("titi"))]
-                       .into_iter()
-                       .collect()),
+                            .into_iter()
+                            .collect()),
                    handler.matches(v_map(vec![(v_number(1, 1),
                                                v_map(vec![(v_number(2, 1), v_string("titi"))]))])));
     }
@@ -211,12 +216,12 @@ mod test {
         let handler = ExceptionHandler::new(Rc::new(Pattern::Identifier("toto".to_owned())),
                                             Closure::blank());
         assert_eq!(Some(vec![("toto".to_owned(), v_string("titi"))]
-                       .into_iter()
-                       .collect()),
+                            .into_iter()
+                            .collect()),
                    handler.matches(v_string("titi")));
         assert_eq!(Some(vec![("toto".to_owned(), v_number(1, 1))]
-                       .into_iter()
-                       .collect()),
+                            .into_iter()
+                            .collect()),
                    handler.matches(v_number(1, 1)))
     }
 }

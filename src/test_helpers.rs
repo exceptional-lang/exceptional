@@ -124,7 +124,8 @@ pub fn v_number(num: i64, denom: i64) -> Value {
 }
 
 pub fn v_map(pairs: Vec<(Value, Value)>) -> Value {
-    let map: BTreeMap<_, _> = pairs.into_iter()
+    let map: BTreeMap<_, _> = pairs
+        .into_iter()
         .map(|(key, value)| (key, value))
         .collect::<BTreeMap<_, _>>();
     Value::Map(Rc::new(RefCell::new(map)))

@@ -6,6 +6,12 @@ use binding_map::BindingMap;
 use value::Value;
 use closure::Closure;
 use native::find_lib;
+use native::FileDescriptorMap;
+use std::io::prelude::*;
+use std::fs::File;
+use std::fs;
+use std::os::unix::io::RawFd;
+
 use exception_handler::ExceptionHandler;
 
 use std::rc::Rc;
@@ -26,13 +32,13 @@ impl Frame {
     }
 }
 
-
 #[derive(Clone, Eq, Debug, PartialEq)]
 pub struct Vm {
     instructions: Rc<InstructionSequence>,
     pc: usize,
     stack: Vec<Value>,
     frames: Vec<Frame>,
+    file_descriptors: FileDescriptorMap,
 }
 
 impl Vm {
@@ -47,6 +53,7 @@ impl Vm {
             pc: 0,
             stack: Vec::new(),
             frames: vec![frame],
+            file_descriptors: FileDescriptorMap::new(),
         };
         vm
     }
@@ -59,6 +66,7 @@ impl Vm {
             pc: 0,
             stack: Vec::new(),
             frames: vec![frame],
+            file_descriptors: FileDescriptorMap::new(),
         };
         vm
     }
@@ -77,17 +85,27 @@ impl Vm {
             };
 
             match instruction {
+                Instruction::Clear => self.stack.clear(),
                 Instruction::Push(ref value) => {
                     let top_bindings = &mut self.frames.last_mut().unwrap().bindings;
-                    self.stack.push(Vm::literal_to_value(value, top_bindings))
+                    self.stack
+                        .push(Vm::literal_to_value(value, top_bindings))
                 }
                 Instruction::Assign(ref binding_name) => {
                     let value = self.stack.pop().unwrap();
-                    self.frames.last_mut().unwrap().bindings.assign(binding_name, value)
+                    self.frames
+                        .last_mut()
+                        .unwrap()
+                        .bindings
+                        .assign(binding_name, value)
                 }
                 Instruction::LocalAssign(ref binding_name) => {
                     let value = self.stack.pop().unwrap();
-                    self.frames.last_mut().unwrap().bindings.local_assign(binding_name, value)
+                    self.frames
+                        .last_mut()
+                        .unwrap()
+                        .bindings
+                        .local_assign(binding_name, value)
                 }
                 Instruction::Call(arg_size) => {
                     let closure_info = match self.stack.pop() {
@@ -120,17 +138,17 @@ impl Vm {
                                             Some(closure.init_map(local_bindings)));
                 }
                 Instruction::Fetch(ref binding_name) => {
-                    let value = self.frames.last().unwrap().bindings.fetch(binding_name).unwrap();
+                    let value = self.fetch(binding_name).unwrap();
                     self.stack.push(value);
                 }
                 Instruction::MakeMap(size) => {
                     let map = (0..size)
                         .into_iter()
                         .map(|_| {
-                            let value = self.stack.pop().unwrap();
-                            let key = self.stack.pop().unwrap();
-                            (key, value)
-                        })
+                                 let value = self.stack.pop().unwrap();
+                                 let key = self.stack.pop().unwrap();
+                                 (key, value)
+                             })
                         .collect();
                     self.stack.push(Value::Map(Rc::new(RefCell::new(map))))
                 }
@@ -218,17 +236,34 @@ impl Vm {
         self.stack.push(value);
     }
 
+    pub fn pop(&mut self) -> Option<Value> {
+        self.stack.pop()
+    }
+
+    pub fn fetch(&mut self, name: &String) -> Option<Value> {
+        self.bindings().fetch(name)
+    }
+
+    pub fn local_assign(&mut self, name: &String, value: Value) {
+        self.bindings().local_assign(name, value);
+    }
+
+    fn bindings(&mut self) -> &mut BindingMap {
+        &mut self.frames.last_mut().unwrap().bindings
+    }
+
     fn raise(&mut self, value: Value) {
         let matched_handler = self.frames
             .iter()
             .rev()
             .filter_map(|frame| {
-                let handlers = frame.exception_handlers
+                let handlers = frame
+                    .exception_handlers
                     .iter()
                     .filter_map(|handler| match handler.matches(value.clone()) {
-                        Some(bindings) => Some((handler, bindings)),
-                        None => None,
-                    })
+                                    Some(bindings) => Some((handler, bindings)),
+                                    None => None,
+                                })
                     .collect::<Vec<_>>();
 
                 if handlers.is_empty() {
@@ -242,13 +277,13 @@ impl Vm {
             .collect::<Vec<_>>()
             .first()
             .map(|&(ref handler, ref bindings)| {
-                let mut map = BindingMap::new(Some(&handler.closure.parent_bindings));
-                for (key, value) in bindings.iter() {
-                    map.local_assign(key, value.to_owned());
-                }
-                println!("bindings: {:?}", bindings);
-                (handler.closure.instructions.clone(), map)
-            });
+                     let mut map = BindingMap::new(Some(&handler.closure.parent_bindings));
+                     for (key, value) in bindings.iter() {
+                         map.local_assign(key, value.to_owned());
+                     }
+                     println!("bindings: {:?}", bindings);
+                     (handler.closure.instructions.clone(), map)
+                 });
 
         if let Some((instructions, map)) = matched_handler {
             println!("instructions: {:?}", instructions);
@@ -258,7 +293,9 @@ impl Vm {
         }
     }
 
-    fn reset_instructions(&mut self, instructions: Rc<InstructionSequence>, binding_map: Option<BindingMap>) {
+    fn reset_instructions(&mut self,
+                          instructions: Rc<InstructionSequence>,
+                          binding_map: Option<BindingMap>) {
         if let Some(map) = binding_map {
             self.frames.push(Frame::new(map));
         }
@@ -300,53 +337,58 @@ mod test {
 
     #[test]
     fn run_simple() {
-        let mut vm = Vm::new("let a = 1\
-        let b = { \"a\" => 1 }");
+        let mut vm = Vm::new(r#"let a = 1
+        let b = { "a" => 1 }"#);
         vm.run();
         assert_eq!(v_number(1, 1),
-                   vm.frames.last().unwrap().bindings.fetch(&"a".to_owned()).unwrap().to_owned());
+                   vm.fetch(&"a".to_owned()).unwrap().to_owned());
         let expected_map = v_map(vec![(v_string("a"), v_number(1, 1))]);
-        assert_eq!(expected_map,
-                   vm.frames.last().unwrap().bindings.fetch(&"b".to_owned()).unwrap().to_owned())
+        assert_eq!(expected_map, vm.fetch(&"b".to_owned()).unwrap().to_owned())
     }
 
     #[test]
     fn function_call() {
-        let source = "let a = \"\"
+        let source = r#"let a = ""
             let x = def() do
               a = 1
             end
-            x()";
+            x()"#;
 
         let mut vm = Vm::new(source);
         vm.run();
         assert_eq!(v_number(1, 1),
-                   vm.frames.last().unwrap().bindings.fetch(&"a".to_owned()).unwrap().to_owned())
+                   vm.fetch(&"a".to_owned()).unwrap().to_owned())
     }
 
     #[test]
     fn function_call_with_args() {
-        let source = "let a = \"\"
-            let b = \"\"
+        let source = r#"let a = ""
+            let b = ""
             let x = def(c, d) do
               a = c
               b = d
             end
-            x(1, 2)";
+            x(1, 2)"#;
 
         let mut vm = Vm::new(source);
         vm.run();
         assert_eq!(v_number(1, 1),
-                   vm.frames.last().unwrap().bindings.fetch(&"a".to_owned()).unwrap().to_owned());
+                   vm.fetch(&"a".to_owned()).unwrap().to_owned());
         assert_eq!(v_number(2, 1),
-                   vm.frames.last().unwrap().bindings.fetch(&"b".to_owned()).unwrap().to_owned())
+                   vm.frames
+                       .last()
+                       .unwrap()
+                       .bindings
+                       .fetch(&"b".to_owned())
+                       .unwrap()
+                       .to_owned())
     }
 
     #[test]
     #[should_panic(expected="expected a closure")]
     fn calling_non_function() {
-        let source = "let x = \"\"
-            x()";
+        let source = r#"let x = ""
+            x()"#;
         let mut vm = Vm::new(source);
         vm.run();
     }
@@ -364,101 +406,106 @@ mod test {
 
     #[test]
     fn basic_rescue() {
-        let source =
-            "let a = \"\"
+        let source = r#"let a = ""
             rescue(id) do
                 a = id
             end
             let x = def(b) do
                 raise(b)
             end
-            x(1)";
+            x(1)"#;
 
         let mut vm = Vm::new(source);
         vm.run();
         assert_eq!(v_number(1, 1),
-                   vm.frames.last().unwrap().bindings.fetch(&"a".to_owned()).unwrap().to_owned())
+                   vm.fetch(&"a".to_owned()).unwrap().to_owned())
     }
 
     #[test]
     fn rescue_map() {
-        let source =
-            "let a = \"\"
-            rescue({\"b\" => id}) do
+        let source = r#"let a = ""
+            rescue({"b" => id}) do
                 a = id
             end
             let x = def(a, b) do
-                raise({\"a\" => 1, \"b\" => b})
+                raise({"a" => 1, "b" => b})
             end
-            x(2, 1)";
+            x(2, 1)"#;
 
         let mut vm = Vm::new(source);
         vm.run();
         assert_eq!(v_number(1, 1),
-                   vm.frames.last().unwrap().bindings.fetch(&"a".to_owned()).unwrap().to_owned())
+                   vm.fetch(&"a".to_owned()).unwrap().to_owned())
     }
 
     #[test]
     fn maps() {
-        let source = "let a = { \"c\" => 1 }
-            a[\"b\"] = 2
-            let b = a[\"b\"]
-            let c = a[\"c\"]\
-            let d = a + { \"e\" => 3 }";
+        let source = r#"let a = { "c" => 1 }
+            a["b"] = 2
+            let b = a["b"]
+            let c = a["c"]
+            let d = a + { "e" => 3 }"#;
 
         let mut vm = Vm::new(source);
         vm.run();
 
         assert_eq!(v_number(2, 1),
-                   vm.frames.last().unwrap().bindings.fetch(&"b".to_owned()).unwrap().to_owned());
+                   vm.fetch(&"b".to_owned()).unwrap().to_owned());
         assert_eq!(v_number(1, 1),
-                   vm.frames.last().unwrap().bindings.fetch(&"c".to_owned()).unwrap().to_owned());
-        assert_eq!(v_map(vec![(v_string("c"), v_number(1, 1)), (v_string("b"), v_number(2, 1))]),
-                   vm.frames.last().unwrap().bindings.fetch(&"a".to_owned()).unwrap().to_owned());
+                   vm.fetch(&"c".to_owned()).unwrap().to_owned());
+        assert_eq!(v_map(vec![(v_string("c"), v_number(1, 1)),
+                              (v_string("b"), v_number(2, 1))]),
+                   vm.fetch(&"a".to_owned()).unwrap().to_owned());
         assert_eq!(v_map(vec![(v_string("c"), v_number(1, 1)),
                               (v_string("b"), v_number(2, 1)),
                               (v_string("e"), v_number(3, 1))]),
-                   vm.frames.last().unwrap().bindings.fetch(&"d".to_owned()).unwrap().to_owned());
+                   vm.fetch(&"d".to_owned()).unwrap().to_owned());
     }
 
     #[test]
     fn fibonacci() {
-        let source = "let fib = def(k) do
-          rescue({ \"m\" => m, \"k\" => 0 }) do
-            raise({ \"result\" => m })
+        let source = r#"let fib = def(k) do
+          rescue({ "m" => m, "k" => 0 }) do
+            raise({ "result" => m })
           end
-          rescue({ \"m\" => m, \"n\" => n, \"k\" => k }) do
-            raise({ \"m\" => n, \"n\" => m + n, \"k\" => k - 1 })
+          rescue({ "m" => m, "n" => n, "k" => k }) do
+            raise({ "m" => n, "n" => m + n, "k" => k - 1 })
           end
-          raise({ \"m\" => 0, \"n\" => 1, \"k\" => k })
+          raise({ "m" => 0, "n" => 1, "k" => k })
         end
-        let res = \"\"
+        let res = ""
         let setup = def() do
-          rescue({ \"result\" => r }) do
+          rescue({ "result" => r }) do
             res = r
           end
           fib(6)
         end
-        setup()";
+        setup()"#;
 
         let mut vm = Vm::new(source);
         vm.run();
         assert_eq!(v_number(8, 1),
-                   vm.frames.last().unwrap().bindings.fetch(&"res".to_owned()).unwrap().to_owned())
+                   vm.fetch(&"res".to_owned()).unwrap().to_owned())
     }
 
     #[test]
     fn import_io() {
-        let source = "let a = import(\"io\")
-             let res = \"\"\
-             rescue({\"io.result\" => r}) do
+        let mut buffer = File::create("read_test.txt").unwrap();
+
+        buffer.write(b"file content").unwrap();
+
+        let source = r#"let a = import("io")
+             let res = ""
+             rescue({"io.result" => r}) do
                res = r
              end
-             a.read(\"/dev/null\")";
+             a.read_file("read_test.txt")"#;
 
         let mut vm = Vm::new(source);
         vm.run();
-        assert_eq!(v_string(""),
-                   vm.frames.last().unwrap().bindings.fetch(&"res".to_owned()).unwrap().to_owned())
+        assert_eq!(v_string("file content"),
+                   vm.fetch(&"res".to_owned()).unwrap().to_owned());
+
+        fs::remove_file("read_test.txt").unwrap();
     }
 }

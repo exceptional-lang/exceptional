@@ -34,7 +34,9 @@ impl BindingMap {
     }
 
     pub fn local_assign(&mut self, binding_name: &String, value: Value) {
-        self.map.borrow_mut().insert(binding_name.to_owned(), value);
+        self.map
+            .borrow_mut()
+            .insert(binding_name.to_owned(), value);
     }
 
     pub fn assign(&mut self, binding_name: &String, value: Value) {
