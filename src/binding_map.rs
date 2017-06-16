@@ -34,9 +34,7 @@ impl BindingMap {
     }
 
     pub fn local_assign(&mut self, binding_name: &String, value: Value) {
-        self.map
-            .borrow_mut()
-            .insert(binding_name.to_owned(), value);
+        self.map.borrow_mut().insert(binding_name.to_owned(), value);
     }
 
     pub fn assign(&mut self, binding_name: &String, value: Value) {
@@ -66,8 +64,10 @@ mod test {
 
     #[test]
     fn new() {
-        assert_eq!(Rc::new(RefCell::new(BTreeMap::new())),
-                   BindingMap::new(None).map)
+        assert_eq!(
+            Rc::new(RefCell::new(BTreeMap::new())),
+            BindingMap::new(None).map
+        )
     }
 
     #[test]
@@ -106,7 +106,9 @@ mod test {
         let mut map = BindingMap::new(Some(&parent));
         map.assign(&"toto".to_owned(), v_string("new_value"));
 
-        assert_eq!(Some(v_string("new_value")),
-                   parent.fetch(&"toto".to_owned()))
+        assert_eq!(
+            Some(v_string("new_value")),
+            parent.fetch(&"toto".to_owned())
+        )
     }
 }

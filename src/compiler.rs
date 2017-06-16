@@ -28,7 +28,9 @@ fn compile_statement(statement: &Statement) -> InstructionSequence {
                 .flat_map(|stmt| compile_statement(stmt))
                 .collect::<InstructionSequence>();
 
-            vec![Instruction::Rescue(Rc::new(pattern.clone()), Rc::new(instructions))]
+            vec![
+                Instruction::Rescue(Rc::new(pattern.clone()), Rc::new(instructions)),
+            ]
         }
         &Statement::Raise(ref expression) => {
             let mut instructions = compile_expression(expression);
@@ -54,10 +56,10 @@ fn compile_expression(expression: &Expression) -> InstructionSequence {
                     let mut map_instructions = pairs
                         .iter()
                         .flat_map(|&(ref key, ref value)| {
-                                      let mut insns = compile_expression(key);
-                                      insns.extend(compile_expression(value).iter().cloned());
-                                      insns
-                                  })
+                            let mut insns = compile_expression(key);
+                            insns.extend(compile_expression(value).iter().cloned());
+                            insns
+                        })
                         .collect::<InstructionSequence>();
 
                     map_instructions.push(Instruction::MakeMap(pairs.len()));
@@ -125,38 +127,56 @@ mod test {
 
     #[test]
     fn compiles_literal_expressions() {
-        assert_eq!(compile_expression(&e_literal(l_number(1, 1))),
-                   vec![Instruction::Push(Literal::Number(build_ratio(1, 1)))])
+        assert_eq!(
+            compile_expression(&e_literal(l_number(1, 1))),
+            vec![Instruction::Push(Literal::Number(build_ratio(1, 1)))]
+        )
     }
 
     #[test]
     fn compiles_binop_expressions() {
-        assert_eq!(compile_expression(&e_binop("+",
-                                               e_literal(l_number(1, 1)),
-                                               e_literal(l_number(2, 1)))),
-                   vec![Instruction::Push(Literal::Number(build_ratio(1, 1))),
-                        Instruction::Push(Literal::Number(build_ratio(2, 1))),
-                        Instruction::BinOp(Op::Add)])
+        assert_eq!(
+            compile_expression(&e_binop(
+                "+",
+                e_literal(l_number(1, 1)),
+                e_literal(l_number(2, 1)),
+            )),
+            vec![
+                Instruction::Push(Literal::Number(build_ratio(1, 1))),
+                Instruction::Push(Literal::Number(build_ratio(2, 1))),
+                Instruction::BinOp(Op::Add),
+            ]
+        )
     }
 
     #[test]
     fn compiles_identifier_expressions() {
-        assert_eq!(compile_expression(&e_identifier("toto")),
-                   vec![Instruction::Fetch("toto".to_owned())]);
+        assert_eq!(
+            compile_expression(&e_identifier("toto")),
+            vec![Instruction::Fetch("toto".to_owned())]
+        );
     }
 
     #[test]
     fn compiles_index_access_expressions() {
-        assert_eq!(compile_expression(&e_index_access(e_identifier("toto"),
-                                                      e_literal(l_string("titi")))),
-                   vec![Instruction::Fetch("toto".to_owned()),
-                        Instruction::Push(l_string("titi")),
-                        Instruction::IndexAccess])
+        assert_eq!(
+            compile_expression(&e_index_access(
+                e_identifier("toto"),
+                e_literal(l_string("titi")),
+            )),
+            vec![
+                Instruction::Fetch("toto".to_owned()),
+                Instruction::Push(l_string("titi")),
+                Instruction::IndexAccess,
+            ]
+        )
     }
 
     #[test]
     fn compiles_import_expressions() {
-        assert_eq!(compile_expression(&e_import(e_literal(l_string("toto")))),
-                   vec![Instruction::Push(l_string("toto")), Instruction::Import])
+        assert_eq!(
+            compile_expression(&e_import(e_literal(l_string("toto")))),
+            vec![Instruction::Push(l_string("toto")), Instruction::Import]
+        )
     }
 }

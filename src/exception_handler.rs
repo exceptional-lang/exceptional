@@ -79,13 +79,12 @@ impl ExceptionHandler {
                 for &(ref key, ref pattern_value) in pairs.iter() {
                     let key_as_value = ExceptionHandler::pattern_key_to_value(key);
 
-                    let maybe_nested_bindings =
-                        btreemap
-                            .borrow()
-                            .get(&Rc::new(key_as_value))
-                            .and_then(|value| {
-                                          ExceptionHandler::match_pattern(pattern_value, value)
-                                      });
+                    let maybe_nested_bindings = btreemap
+                        .borrow()
+                        .get(&Rc::new(key_as_value))
+                        .and_then(|value| {
+                            ExceptionHandler::match_pattern(pattern_value, value)
+                        });
 
                     if let None = maybe_nested_bindings {
                         return None;
@@ -111,9 +110,7 @@ impl ExceptionHandler {
     }
 
     fn match_identifier(name: &String, value: &Value) -> MatchedBindings {
-        let bindings: BTreeMap<_, _> = vec![(name.to_owned(), value.clone())]
-            .into_iter()
-            .collect();
+        let bindings: BTreeMap<_, _> = vec![(name.to_owned(), value.clone())].into_iter().collect();
         Some(bindings)
     }
 
@@ -135,8 +132,10 @@ mod test {
 
     #[test]
     fn matches_numbers() {
-        let handler = ExceptionHandler::new(Rc::new(Pattern::Number(build_ratio(1, 1))),
-                                            Closure::blank());
+        let handler = ExceptionHandler::new(
+            Rc::new(Pattern::Number(build_ratio(1, 1))),
+            Closure::blank(),
+        );
         assert_eq!(Some(BTreeMap::new()), handler.matches(v_number(1, 1)));
         assert_eq!(None, handler.matches(v_number(2, 1)));
         assert_eq!(None, handler.matches(v_string("toto")))
@@ -144,8 +143,10 @@ mod test {
 
     #[test]
     fn matches_strings() {
-        let handler = ExceptionHandler::new(Rc::new(Pattern::CharString("toto".to_owned())),
-                                            Closure::blank());
+        let handler = ExceptionHandler::new(
+            Rc::new(Pattern::CharString("toto".to_owned())),
+            Closure::blank(),
+        );
         assert_eq!(Some(BTreeMap::new()), handler.matches(v_string("toto")));
         assert_eq!(None, handler.matches(v_string("titi")));
         assert_eq!(None, handler.matches(v_number(1, 1)))
@@ -161,67 +162,115 @@ mod test {
 
     #[test]
     fn matches_simple_map() {
-        let handler =
-            ExceptionHandler::new(Rc::new(Pattern::Map(vec![(Pattern::Number(build_ratio(1,
-                                                                                         1)),
-                                                             Pattern::Identifier("toto"
-                                                                 .to_owned()))])),
-                                  Closure::blank());
-        assert_eq!(Some(vec![("toto".to_owned(), v_string("titi"))]
-                            .into_iter()
-                            .collect()),
-                   handler.matches(v_map(vec![(v_number(1, 1), v_string("titi"))])));
-        assert_eq!(None,
-                   handler.matches(v_map(vec![(v_string("titi"), v_number(2, 1))])));
+        let handler = ExceptionHandler::new(
+            Rc::new(Pattern::Map(vec![
+                (
+                    Pattern::Number(build_ratio(1, 1)),
+                    Pattern::Identifier("toto".to_owned())
+                ),
+            ])),
+            Closure::blank(),
+        );
+        assert_eq!(
+            Some(
+                vec![("toto".to_owned(), v_string("titi"))]
+                    .into_iter()
+                    .collect(),
+            ),
+            handler.matches(v_map(vec![(v_number(1, 1), v_string("titi"))]))
+        );
+        assert_eq!(
+            None,
+            handler.matches(v_map(vec![(v_string("titi"), v_number(2, 1))]))
+        );
         assert_eq!(None, handler.matches(v_bool(false)));
     }
 
     #[test]
     fn matches_maps_with_multiple_bindings_of_equal_values() {
-        let handler =
-            ExceptionHandler::new(Rc::new(Pattern::Map(vec![(Pattern::Number(build_ratio(1,
-                                                                                         1)),
-                                                             Pattern::Identifier("toto"
-                                                                 .to_owned())),
-                                                            (Pattern::Number(build_ratio(2,
-                                                                                         1)),
-                                                             Pattern::Identifier("toto"
-                                                                 .to_owned()))])),
-                                  Closure::blank());
-        assert_eq!(Some(vec![("toto".to_owned(), v_string("titi"))]
-                            .into_iter()
-                            .collect()),
-                   handler.matches(v_map(vec![(v_number(1, 1), v_string("titi")),
-                                              (v_number(2, 1), v_string("titi"))])));
-        assert_eq!(None,
-                   handler.matches(v_map(vec![(v_number(1, 1), v_string("titi")),
-                                              (v_number(2, 1), v_string("foo"))])));
+        let handler = ExceptionHandler::new(
+            Rc::new(Pattern::Map(vec![
+                (
+                    Pattern::Number(build_ratio(1, 1)),
+                    Pattern::Identifier("toto".to_owned())
+                ),
+                (
+                    Pattern::Number(build_ratio(2, 1)),
+                    Pattern::Identifier("toto".to_owned())
+                ),
+            ])),
+            Closure::blank(),
+        );
+        assert_eq!(
+            Some(
+                vec![("toto".to_owned(), v_string("titi"))]
+                    .into_iter()
+                    .collect(),
+            ),
+            handler.matches(v_map(vec![
+                (v_number(1, 1), v_string("titi")),
+                (v_number(2, 1), v_string("titi")),
+            ]))
+        );
+        assert_eq!(
+            None,
+            handler.matches(v_map(vec![
+                (v_number(1, 1), v_string("titi")),
+                (v_number(2, 1), v_string("foo")),
+            ]))
+        );
     }
 
     #[test]
     fn matches_recursive_maps() {
-        let pattern = Pattern::Map(vec![(Pattern::Number(build_ratio(1, 1)),
-                                         Pattern::Map(vec![(Pattern::Number(build_ratio(2, 1)),
-                                                  Pattern::Identifier("toto".to_owned()))]))]);
+        let pattern = Pattern::Map(vec![
+            (
+                Pattern::Number(build_ratio(1, 1)),
+                Pattern::Map(vec![
+                    (
+                        Pattern::Number(build_ratio(2, 1)),
+                        Pattern::Identifier("toto".to_owned())
+                    ),
+                ])
+            ),
+        ]);
         let handler = ExceptionHandler::new(Rc::new(pattern), Closure::blank());
-        assert_eq!(Some(vec![("toto".to_owned(), v_string("titi"))]
-                            .into_iter()
-                            .collect()),
-                   handler.matches(v_map(vec![(v_number(1, 1),
-                                               v_map(vec![(v_number(2, 1), v_string("titi"))]))])));
+        assert_eq!(
+            Some(
+                vec![("toto".to_owned(), v_string("titi"))]
+                    .into_iter()
+                    .collect(),
+            ),
+            handler.matches(v_map(vec![
+                (
+                    v_number(1, 1),
+                    v_map(vec![(v_number(2, 1), v_string("titi"))])
+                ),
+            ]))
+        );
     }
 
     #[test]
     fn matches_identifier() {
-        let handler = ExceptionHandler::new(Rc::new(Pattern::Identifier("toto".to_owned())),
-                                            Closure::blank());
-        assert_eq!(Some(vec![("toto".to_owned(), v_string("titi"))]
-                            .into_iter()
-                            .collect()),
-                   handler.matches(v_string("titi")));
-        assert_eq!(Some(vec![("toto".to_owned(), v_number(1, 1))]
-                            .into_iter()
-                            .collect()),
-                   handler.matches(v_number(1, 1)))
+        let handler = ExceptionHandler::new(
+            Rc::new(Pattern::Identifier("toto".to_owned())),
+            Closure::blank(),
+        );
+        assert_eq!(
+            Some(
+                vec![("toto".to_owned(), v_string("titi"))]
+                    .into_iter()
+                    .collect(),
+            ),
+            handler.matches(v_string("titi"))
+        );
+        assert_eq!(
+            Some(
+                vec![("toto".to_owned(), v_number(1, 1))]
+                    .into_iter()
+                    .collect(),
+            ),
+            handler.matches(v_number(1, 1))
+        )
     }
 }

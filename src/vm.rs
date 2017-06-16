@@ -88,24 +88,21 @@ impl Vm {
                 Instruction::Clear => self.stack.clear(),
                 Instruction::Push(ref value) => {
                     let top_bindings = &mut self.frames.last_mut().unwrap().bindings;
-                    self.stack
-                        .push(Vm::literal_to_value(value, top_bindings))
+                    self.stack.push(Vm::literal_to_value(value, top_bindings))
                 }
                 Instruction::Assign(ref binding_name) => {
                     let value = self.stack.pop().unwrap();
-                    self.frames
-                        .last_mut()
-                        .unwrap()
-                        .bindings
-                        .assign(binding_name, value)
+                    self.frames.last_mut().unwrap().bindings.assign(
+                        binding_name,
+                        value,
+                    )
                 }
                 Instruction::LocalAssign(ref binding_name) => {
                     let value = self.stack.pop().unwrap();
-                    self.frames
-                        .last_mut()
-                        .unwrap()
-                        .bindings
-                        .local_assign(binding_name, value)
+                    self.frames.last_mut().unwrap().bindings.local_assign(
+                        binding_name,
+                        value,
+                    )
                 }
                 Instruction::Call(arg_size) => {
                     let closure_info = match self.stack.pop() {
@@ -123,9 +120,11 @@ impl Vm {
                         Err(m) => panic!(m),
                     };
                     if arg_size != closure_args.len() {
-                        panic!("wrong number of arguments, expected {:?}, got {:?}",
-                               closure_args.len(),
-                               arg_size)
+                        panic!(
+                            "wrong number of arguments, expected {:?}, got {:?}",
+                            closure_args.len(),
+                            arg_size
+                        )
                     };
                     let local_bindings = (*closure_args)
                         .clone()
@@ -134,8 +133,10 @@ impl Vm {
                         .map(|arg_name| (arg_name, args.pop().unwrap()))
                         .collect();
 
-                    self.reset_instructions(closure.instructions.clone(),
-                                            Some(closure.init_map(local_bindings)));
+                    self.reset_instructions(
+                        closure.instructions.clone(),
+                        Some(closure.init_map(local_bindings)),
+                    );
                 }
                 Instruction::Fetch(ref binding_name) => {
                     let value = self.fetch(binding_name).unwrap();
@@ -145,10 +146,10 @@ impl Vm {
                     let map = (0..size)
                         .into_iter()
                         .map(|_| {
-                                 let value = self.stack.pop().unwrap();
-                                 let key = self.stack.pop().unwrap();
-                                 (key, value)
-                             })
+                            let value = self.stack.pop().unwrap();
+                            let key = self.stack.pop().unwrap();
+                            (key, value)
+                        })
                         .collect();
                     self.stack.push(Value::Map(Rc::new(RefCell::new(map))))
                 }
@@ -157,11 +158,9 @@ impl Vm {
                         &mut self.frames.last_mut().unwrap().bindings.clone()
                     };
                     let closure = Closure::new(iseq.clone(), top_bindings);
-                    self.frames
-                        .last_mut()
-                        .unwrap()
-                        .exception_handlers
-                        .push(ExceptionHandler::new(pattern.clone(), closure))
+                    self.frames.last_mut().unwrap().exception_handlers.push(
+                        ExceptionHandler::new(pattern.clone(), closure),
+                    )
                 }
                 Instruction::Raise => {
                     let raised_value = self.stack.pop().unwrap();
@@ -261,9 +260,9 @@ impl Vm {
                     .exception_handlers
                     .iter()
                     .filter_map(|handler| match handler.matches(value.clone()) {
-                                    Some(bindings) => Some((handler, bindings)),
-                                    None => None,
-                                })
+                        Some(bindings) => Some((handler, bindings)),
+                        None => None,
+                    })
                     .collect::<Vec<_>>();
 
                 if handlers.is_empty() {
@@ -277,13 +276,13 @@ impl Vm {
             .collect::<Vec<_>>()
             .first()
             .map(|&(ref handler, ref bindings)| {
-                     let mut map = BindingMap::new(Some(&handler.closure.parent_bindings));
-                     for (key, value) in bindings.iter() {
-                         map.local_assign(key, value.to_owned());
-                     }
-                     println!("bindings: {:?}", bindings);
-                     (handler.closure.instructions.clone(), map)
-                 });
+                let mut map = BindingMap::new(Some(&handler.closure.parent_bindings));
+                for (key, value) in bindings.iter() {
+                    map.local_assign(key, value.to_owned());
+                }
+                println!("bindings: {:?}", bindings);
+                (handler.closure.instructions.clone(), map)
+            });
 
         if let Some((instructions, map)) = matched_handler {
             println!("instructions: {:?}", instructions);
@@ -293,9 +292,11 @@ impl Vm {
         }
     }
 
-    fn reset_instructions(&mut self,
-                          instructions: Rc<InstructionSequence>,
-                          binding_map: Option<BindingMap>) {
+    fn reset_instructions(
+        &mut self,
+        instructions: Rc<InstructionSequence>,
+        binding_map: Option<BindingMap>,
+    ) {
         if let Some(map) = binding_map {
             self.frames.push(Frame::new(map));
         }
@@ -337,11 +338,15 @@ mod test {
 
     #[test]
     fn run_simple() {
-        let mut vm = Vm::new(r#"let a = 1
-        let b = { "a" => 1 }"#);
+        let mut vm = Vm::new(
+            r#"let a = 1
+        let b = { "a" => 1 }"#,
+        );
         vm.run();
-        assert_eq!(v_number(1, 1),
-                   vm.fetch(&"a".to_owned()).unwrap().to_owned());
+        assert_eq!(
+            v_number(1, 1),
+            vm.fetch(&"a".to_owned()).unwrap().to_owned()
+        );
         let expected_map = v_map(vec![(v_string("a"), v_number(1, 1))]);
         assert_eq!(expected_map, vm.fetch(&"b".to_owned()).unwrap().to_owned())
     }
@@ -356,8 +361,10 @@ mod test {
 
         let mut vm = Vm::new(source);
         vm.run();
-        assert_eq!(v_number(1, 1),
-                   vm.fetch(&"a".to_owned()).unwrap().to_owned())
+        assert_eq!(
+            v_number(1, 1),
+            vm.fetch(&"a".to_owned()).unwrap().to_owned()
+        )
     }
 
     #[test]
@@ -372,20 +379,24 @@ mod test {
 
         let mut vm = Vm::new(source);
         vm.run();
-        assert_eq!(v_number(1, 1),
-                   vm.fetch(&"a".to_owned()).unwrap().to_owned());
-        assert_eq!(v_number(2, 1),
-                   vm.frames
-                       .last()
-                       .unwrap()
-                       .bindings
-                       .fetch(&"b".to_owned())
-                       .unwrap()
-                       .to_owned())
+        assert_eq!(
+            v_number(1, 1),
+            vm.fetch(&"a".to_owned()).unwrap().to_owned()
+        );
+        assert_eq!(
+            v_number(2, 1),
+            vm.frames
+                .last()
+                .unwrap()
+                .bindings
+                .fetch(&"b".to_owned())
+                .unwrap()
+                .to_owned()
+        )
     }
 
     #[test]
-    #[should_panic(expected="expected a closure")]
+    #[should_panic(expected = "expected a closure")]
     fn calling_non_function() {
         let source = r#"let x = ""
             x()"#;
@@ -394,7 +405,7 @@ mod test {
     }
 
     #[test]
-    #[should_panic(expected="wrong number of arguments")]
+    #[should_panic(expected = "wrong number of arguments")]
     fn function_with_wrong_arg_count() {
         let source = "let x = def(a, b) do
             end
@@ -417,8 +428,10 @@ mod test {
 
         let mut vm = Vm::new(source);
         vm.run();
-        assert_eq!(v_number(1, 1),
-                   vm.fetch(&"a".to_owned()).unwrap().to_owned())
+        assert_eq!(
+            v_number(1, 1),
+            vm.fetch(&"a".to_owned()).unwrap().to_owned()
+        )
     }
 
     #[test]
@@ -434,8 +447,10 @@ mod test {
 
         let mut vm = Vm::new(source);
         vm.run();
-        assert_eq!(v_number(1, 1),
-                   vm.fetch(&"a".to_owned()).unwrap().to_owned())
+        assert_eq!(
+            v_number(1, 1),
+            vm.fetch(&"a".to_owned()).unwrap().to_owned()
+        )
     }
 
     #[test]
@@ -449,17 +464,29 @@ mod test {
         let mut vm = Vm::new(source);
         vm.run();
 
-        assert_eq!(v_number(2, 1),
-                   vm.fetch(&"b".to_owned()).unwrap().to_owned());
-        assert_eq!(v_number(1, 1),
-                   vm.fetch(&"c".to_owned()).unwrap().to_owned());
-        assert_eq!(v_map(vec![(v_string("c"), v_number(1, 1)),
-                              (v_string("b"), v_number(2, 1))]),
-                   vm.fetch(&"a".to_owned()).unwrap().to_owned());
-        assert_eq!(v_map(vec![(v_string("c"), v_number(1, 1)),
-                              (v_string("b"), v_number(2, 1)),
-                              (v_string("e"), v_number(3, 1))]),
-                   vm.fetch(&"d".to_owned()).unwrap().to_owned());
+        assert_eq!(
+            v_number(2, 1),
+            vm.fetch(&"b".to_owned()).unwrap().to_owned()
+        );
+        assert_eq!(
+            v_number(1, 1),
+            vm.fetch(&"c".to_owned()).unwrap().to_owned()
+        );
+        assert_eq!(
+            v_map(vec![
+                (v_string("c"), v_number(1, 1)),
+                (v_string("b"), v_number(2, 1)),
+            ]),
+            vm.fetch(&"a".to_owned()).unwrap().to_owned()
+        );
+        assert_eq!(
+            v_map(vec![
+                (v_string("c"), v_number(1, 1)),
+                (v_string("b"), v_number(2, 1)),
+                (v_string("e"), v_number(3, 1)),
+            ]),
+            vm.fetch(&"d".to_owned()).unwrap().to_owned()
+        );
     }
 
     #[test]
@@ -484,8 +511,10 @@ mod test {
 
         let mut vm = Vm::new(source);
         vm.run();
-        assert_eq!(v_number(8, 1),
-                   vm.fetch(&"res".to_owned()).unwrap().to_owned())
+        assert_eq!(
+            v_number(8, 1),
+            vm.fetch(&"res".to_owned()).unwrap().to_owned()
+        )
     }
 
     #[test]
@@ -503,8 +532,10 @@ mod test {
 
         let mut vm = Vm::new(source);
         vm.run();
-        assert_eq!(v_string("file content"),
-                   vm.fetch(&"res".to_owned()).unwrap().to_owned());
+        assert_eq!(
+            v_string("file content"),
+            vm.fetch(&"res".to_owned()).unwrap().to_owned()
+        );
 
         fs::remove_file("read_test.txt").unwrap();
     }

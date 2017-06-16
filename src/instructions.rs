@@ -94,16 +94,21 @@ mod test {
 
     #[test]
     fn compare_native_functions() {
-        assert_eq!(NativeFunction::new(mock as NativeCode),
-                   NativeFunction::new(mock as NativeCode));
-        assert!(NativeFunction::new(mock as NativeCode) !=
-                NativeFunction::new(other_mock as NativeCode));
+        assert_eq!(
+            NativeFunction::new(mock as NativeCode),
+            NativeFunction::new(mock as NativeCode)
+        );
+        assert!(
+            NativeFunction::new(mock as NativeCode) != NativeFunction::new(other_mock as NativeCode)
+        );
     }
 
     #[test]
     fn call_native_function() {
         let mut vm = Vm::new(&"");
-        assert_eq!(vec![] as InstructionSequence,
-                   NativeFunction::new(mock as NativeCode).call(&mut vm));
+        assert_eq!(
+            vec![] as InstructionSequence,
+            NativeFunction::new(mock as NativeCode).call(&mut vm)
+        );
     }
 }

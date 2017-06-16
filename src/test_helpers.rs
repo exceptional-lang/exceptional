@@ -131,10 +131,11 @@ pub fn v_map(pairs: Vec<(Value, Value)>) -> Value {
     Value::Map(Rc::new(RefCell::new(map)))
 }
 
-pub fn v_closure(args: Vec<String>,
-                 insns: InstructionSequence,
-                 parent_bindings: Option<&BindingMap>)
-                 -> Value {
+pub fn v_closure(
+    args: Vec<String>,
+    insns: InstructionSequence,
+    parent_bindings: Option<&BindingMap>,
+) -> Value {
     let bindings = BindingMap::new(parent_bindings);
     let closure = Closure::new(Rc::new(insns), &bindings);
     Value::Closure(Rc::new(Box::new(args)), Rc::new(closure))

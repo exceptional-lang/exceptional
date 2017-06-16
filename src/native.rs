@@ -123,19 +123,28 @@ fn native_file_write(vm: &mut Vm) -> InstructionSequence {
 
 fn wrap_native_code(args: Vec<String>, f: NativeCode) -> Value {
     let parent_bindings = BindingMap::new(None);
-    let closure = Closure::new(Rc::new(vec![Instruction::Native(NativeFunction::new(f))]),
-                               &parent_bindings);
+    let closure = Closure::new(
+        Rc::new(vec![Instruction::Native(NativeFunction::new(f))]),
+        &parent_bindings,
+    );
     Value::Closure(Rc::new(Box::new(args)), Rc::new(closure))
 }
 
 fn file_lib() -> Value {
-    let map = vec![(Value::CharString("read".to_owned()),
-                    wrap_native_code(vec!["path".to_owned()], native_file_read as NativeCode)),
-                   (Value::CharString("write".to_owned()),
-                    wrap_native_code(vec!["path".to_owned(), "content".to_owned()],
-                                     native_file_write as NativeCode))]
-            .into_iter()
-            .collect();
+    let map = vec![
+        (
+            Value::CharString("read".to_owned()),
+            wrap_native_code(vec!["path".to_owned()], native_file_read as NativeCode)
+        ),
+        (
+            Value::CharString("write".to_owned()),
+            wrap_native_code(
+                vec!["path".to_owned(), "content".to_owned()],
+                native_file_write as NativeCode,
+            )
+        ),
+    ].into_iter()
+        .collect();
 
     Value::Map(Rc::new(RefCell::new(map)))
 }
@@ -161,17 +170,25 @@ mod test {
     #[test]
     fn find_lib_returns_file() {
         let read_closure =
-            v_closure(vec!["path".to_owned()],
-                      vec![Instruction::Native(NativeFunction::new(native_file_read as
-                                                                   NativeCode))],
-                      None);
+            v_closure(
+                vec!["path".to_owned()],
+                vec![
+                    Instruction::Native(NativeFunction::new(native_file_read as NativeCode)),
+                ],
+                None,
+            );
         let write_closure =
-            v_closure(vec!["path".to_owned(), "content".to_owned()],
-                      vec![Instruction::Native(NativeFunction::new(native_file_write as
-                                                                   NativeCode))],
-                      None);
-        let lib = v_map(vec![(v_string("read"), read_closure),
-                             (v_string("write"), write_closure)]);
+            v_closure(
+                vec!["path".to_owned(), "content".to_owned()],
+                vec![
+                    Instruction::Native(NativeFunction::new(native_file_write as NativeCode)),
+                ],
+                None,
+            );
+        let lib = v_map(vec![
+            (v_string("read"), read_closure),
+            (v_string("write"), write_closure),
+        ]);
         assert_eq!(Some(lib), find_lib("file"));
     }
 
@@ -182,8 +199,10 @@ mod test {
 
     #[test]
     fn read_file_contents_returns_error() {
-        assert_eq!(Err("entity not found".to_owned()),
-                   read_file_contents("/does/not/exist".to_owned()))
+        assert_eq!(
+            Err("entity not found".to_owned()),
+            read_file_contents("/does/not/exist".to_owned())
+        )
     }
 
     #[test]
@@ -200,8 +219,10 @@ mod test {
         vm.local_assign(&"path".to_owned(), v_string("/dev/null"));
         let result = native_file_read(&mut vm);
         assert_eq!(vec![Instruction::Raise], result);
-        assert_eq!(Some(v_map(vec![(v_string("file.result"), v_string(""))])),
-                   vm.pop());
+        assert_eq!(
+            Some(v_map(vec![(v_string("file.result"), v_string(""))])),
+            vm.pop()
+        );
     }
 
     #[test]
@@ -209,8 +230,12 @@ mod test {
         let mut vm = Vm::empty();
         vm.local_assign(&"path".to_owned(), v_string("/does/not/exist"));
         let result = native_file_read(&mut vm);
-        assert_eq!(Some(v_map(vec![(v_string("file.error"), v_string("entity not found"))])),
-                   vm.pop());
+        assert_eq!(
+            Some(v_map(
+                vec![(v_string("file.error"), v_string("entity not found"))],
+            )),
+            vm.pop()
+        );
         assert_eq!(vec![Instruction::Raise], result);
     }
 
@@ -222,8 +247,10 @@ mod test {
 
         let result = native_file_write(&mut vm);
 
-        assert_eq!(Some(v_map(vec![(v_string("file.result"), v_bool(true))])),
-                   vm.pop());
+        assert_eq!(
+            Some(v_map(vec![(v_string("file.result"), v_bool(true))])),
+            vm.pop()
+        );
         assert_eq!(vec![Instruction::Raise], result);
     }
 }

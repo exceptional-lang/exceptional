@@ -26,12 +26,16 @@ impl Value {
             }
             (&Value::CharString(ref lstr), Value::CharString(ref rstr)) => {
                 if let Some(index) = lstr.rfind(rstr) {
-                    Ok(Value::CharString(lstr[0..index].to_owned() + &lstr[(index + rstr.len())..]))
+                    Ok(Value::CharString(
+                        lstr[0..index].to_owned() + &lstr[(index + rstr.len())..],
+                    ))
                 } else {
                     Ok(Value::CharString("".to_owned()))
                 }
             }
-            (&Value::Closure(_, _), Value::Closure(_, _)) => Err(format!("Subtraction of closures is not supported")),
+            (&Value::Closure(_, _), Value::Closure(_, _)) => Err(format!(
+                "Subtraction of closures is not supported"
+            )),
             (&Value::Boolean(ref lbool), Value::Boolean(ref rbool)) => {
                 Ok(Value::Boolean(lbool ^ rbool))
             }
@@ -39,11 +43,13 @@ impl Value {
                 let result = lmap.borrow()
                     .clone()
                     .into_iter()
-                    .filter(|&(ref key, ref value)| if let Some(rvalue) = rmap.borrow().get(key) {
-                                rvalue != value
-                            } else {
-                                true
-                            })
+                    .filter(|&(ref key, ref value)| if let Some(rvalue) =
+                        rmap.borrow().get(key)
+                    {
+                        rvalue != value
+                    } else {
+                        true
+                    })
                     .collect();
                 Ok(Value::Map(Rc::new(RefCell::new(result))))
             }
@@ -62,10 +68,12 @@ impl Value {
                     .collect::<Vec<String>>()
                     .join("");
                 let truncation = (ratio.ceil() - ratio.clone()) *
-                                 Ratio::from_integer((str.len() as i64).to_bigint().unwrap());
+                    Ratio::from_integer((str.len() as i64).to_bigint().unwrap());
                 let truncation_index = extended.len().to_bigint().unwrap() -
-                                       truncation.to_integer();
-                Ok(Value::CharString(extended[..truncation_index.to_usize().unwrap()].to_owned()))
+                    truncation.to_integer();
+                Ok(Value::CharString(
+                    extended[..truncation_index.to_usize().unwrap()].to_owned(),
+                ))
             }
             (&Value::Boolean(ref lbool), Value::Boolean(ref rbool)) => {
                 Ok(Value::Boolean(lbool & rbool))
@@ -128,12 +136,18 @@ mod test {
         assert_eq!(Ok(v_number(15, 2)), v_number(8, 1).sub(v_number(1, 2)));
         assert_err!(v_number(8, 1).sub(v_string("toto")));
         // Strings
-        assert_eq!(Ok(v_string("hello ")),
-                   v_string("hello world").sub(v_string("world")));
-        assert_eq!(Ok(v_string("helld")),
-                   v_string("hello world").sub(v_string("lo wor")));
-        assert_eq!(Ok(v_string("hello world")),
-                   v_string("hello world").sub(v_string("")));
+        assert_eq!(
+            Ok(v_string("hello ")),
+            v_string("hello world").sub(v_string("world"))
+        );
+        assert_eq!(
+            Ok(v_string("helld")),
+            v_string("hello world").sub(v_string("lo wor"))
+        );
+        assert_eq!(
+            Ok(v_string("hello world")),
+            v_string("hello world").sub(v_string(""))
+        );
         assert_err!(v_string("toto").sub(v_number(1, 1)));
         // Boolean
         assert_eq!(Ok(v_bool(false)), v_bool(true).sub(v_bool(true)));
@@ -142,17 +156,27 @@ mod test {
         assert_eq!(Ok(v_bool(false)), v_bool(false).sub(v_bool(false)));
         assert_err!(v_bool(false).sub(v_number(1, 1)));
         // Map
-        assert_eq!(Ok(v_map(vec![(v_number(1, 1), v_number(1, 1))])),
-                   v_map(vec![(v_number(1, 1), v_number(1, 1)),
-                              (v_number(2, 1), v_number(2, 1))])
-                           .sub(v_map(vec![(v_number(2, 1), v_number(2, 1))])));
+        assert_eq!(
+            Ok(v_map(vec![(v_number(1, 1), v_number(1, 1))])),
+            v_map(vec![
+                (v_number(1, 1), v_number(1, 1)),
+                (v_number(2, 1), v_number(2, 1)),
+            ]).sub(v_map(vec![(v_number(2, 1), v_number(2, 1))]))
+        );
         // Map
-        assert_eq!(Ok(v_map(vec![(v_number(1, 1), v_number(1, 1)),
-                                 (v_number(2, 1), v_number(2, 1))])),
-                   v_map(vec![(v_number(1, 1), v_number(1, 1)),
-                              (v_number(2, 1), v_number(2, 1))])
-                           .sub(v_map(vec![(v_number(2, 1), v_number(2, 2))])));
-        assert_err!(v_map(vec![(v_number(1, 1), v_number(1, 1))]).sub(v_number(1, 1)));
+        assert_eq!(
+            Ok(v_map(vec![
+                (v_number(1, 1), v_number(1, 1)),
+                (v_number(2, 1), v_number(2, 1)),
+            ])),
+            v_map(vec![
+                (v_number(1, 1), v_number(1, 1)),
+                (v_number(2, 1), v_number(2, 1)),
+            ]).sub(v_map(vec![(v_number(2, 1), v_number(2, 2))]))
+        );
+        assert_err!(v_map(vec![(v_number(1, 1), v_number(1, 1))]).sub(
+            v_number(1, 1),
+        ));
     }
 
     #[test]
@@ -200,8 +224,10 @@ mod test {
         assert_eq!(Ok(v_number(17, 2)), v_number(8, 1).add(v_number(1, 2)));
         assert_err!(v_number(8, 1).add(v_string("toto")));
         // Strings
-        assert_eq!(Ok(v_string("hello world")),
-                   v_string("hello ").add(v_string("world")));
+        assert_eq!(
+            Ok(v_string("hello world")),
+            v_string("hello ").add(v_string("world"))
+        );
         assert_err!(v_string("toto").add(v_number(1, 1)));
         // Boolean
         assert_eq!(Ok(v_bool(true)), v_bool(true).add(v_bool(true)));
@@ -210,12 +236,28 @@ mod test {
         assert_eq!(Ok(v_bool(false)), v_bool(false).add(v_bool(false)));
         assert_err!(v_bool(false).add(v_number(1, 1)));
         // Map
-        assert_eq!(Ok(v_map(vec![(v_number(1, 1), v_number(1, 1)),
-                                 (v_number(2, 1), v_number(2, 1))])),
-                   v_map(vec![(v_number(1, 1), v_number(1, 1))]).add(v_map(vec![(v_number(2,
-                                                                                          1),
-                                                                                 v_number(2,
-                                                                                          1))])));
-        assert_err!(v_map(vec![(v_number(1, 1), v_number(1, 1))]).add(v_number(1, 1)));
+        assert_eq!(
+            Ok(v_map(vec![
+                (v_number(1, 1), v_number(1, 1)),
+                (v_number(2, 1), v_number(2, 1)),
+            ])),
+            v_map(vec![(v_number(1, 1), v_number(1, 1))]).add(
+                v_map(vec![
+                    (
+                        v_number(
+                            2,
+                            1,
+                        ),
+                        v_number(
+                            2,
+                            1,
+                        )
+                    ),
+                ]),
+            )
+        );
+        assert_err!(v_map(vec![(v_number(1, 1), v_number(1, 1))]).add(
+            v_number(1, 1),
+        ));
     }
 }
