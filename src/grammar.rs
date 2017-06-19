@@ -276,4 +276,39 @@ mod test_statements {
             ]
         )
     }
+
+    #[test]
+    fn parses_rescue_with_string_matching_patterns() {
+        assert_eq!(
+            parse_statements("rescue({ 1 => \"a\" ++ y }) do\nend"),
+            [
+                s_rescue(
+                    p_map(vec![
+                        (
+                            p_number(1, 1),
+                            p_string_match(p_string("a"), p_ident("y"))
+                        ),
+                    ]),
+                    vec![],
+                ),
+            ]
+        );
+        assert_eq!(
+            parse_statements("rescue({ 1 => \"a\" ++ y ++ \"c\" }) do\nend"),
+            [
+                s_rescue(
+                    p_map(vec![
+                        (
+                            p_number(1, 1),
+                            p_string_match(
+                                p_string("a"),
+                                p_string_match(p_ident("y"), p_string("c")),
+                            )
+                        ),
+                    ]),
+                    vec![],
+                ),
+            ]
+        );
+    }
 }

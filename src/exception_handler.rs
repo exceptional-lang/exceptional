@@ -33,6 +33,7 @@ impl ExceptionHandler {
             &Pattern::Boolean(bool) => ExceptionHandler::match_bool(bool, value),
             &Pattern::Map(ref pairs) => ExceptionHandler::match_map(pairs, value),
             &Pattern::Identifier(ref name) => ExceptionHandler::match_identifier(name, value),
+            &Pattern::StringMatch(_, _) => panic!("not implemented"),
         }
     }
 

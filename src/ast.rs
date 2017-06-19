@@ -35,4 +35,5 @@ pub enum Pattern {
     Boolean(bool),
     Map(Vec<(Pattern, Pattern)>),
     Identifier(String),
+    StringMatch(Box<Pattern>, Box<Pattern>),
 }

@@ -55,6 +55,10 @@ pub fn p_ident(name: &str) -> Pattern {
     Pattern::Identifier(name.to_owned())
 }
 
+pub fn p_string_match(left: Pattern, right: Pattern) -> Pattern {
+    Pattern::StringMatch(Box::new(left), Box::new(right))
+}
+
 pub fn s_assign(name: &str, literal: Literal) -> Statement {
     Statement::Assign(true, name.to_owned(), Box::new(e_literal(literal)))
 }

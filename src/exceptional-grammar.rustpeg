@@ -159,6 +159,7 @@ keyPairList -> Vec<(Expression, Expression)>
 
 pattern -> Pattern
   = mapPattern
+  / stringMatchPattern
   / numberPattern
   / charStringPattern
   / booleanPattern
@@ -198,6 +199,17 @@ identifierPattern -> Pattern
   = ident:identifier {
       Pattern::Identifier(ident)
     }
+
+stringMatchPattern -> Pattern
+  = left:stringMatchAtom __ "++" __ right:(stringMatchPattern / stringMatchAtom) {
+      Pattern::StringMatch(Box::new(left), Box::new(right))
+    }
+
+stringMatchAtom -> Pattern
+  = numberPattern
+  / charStringPattern
+  / identifierPattern
+
 __
   = [ \n]*
   / comment
