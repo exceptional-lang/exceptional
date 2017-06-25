@@ -6,6 +6,7 @@ use std::rc::Rc;
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
 use num::rational::BigRational;
+use regex::Regex;
 
 pub type MatchedBindings = Option<BTreeMap<String, Value>>;
 
@@ -33,7 +34,29 @@ impl ExceptionHandler {
             &Pattern::Boolean(bool) => ExceptionHandler::match_bool(bool, value),
             &Pattern::Map(ref pairs) => ExceptionHandler::match_map(pairs, value),
             &Pattern::Identifier(ref name) => ExceptionHandler::match_identifier(name, value),
-            &Pattern::StringMatch(_, _) => panic!("not implemented"),
+            &Pattern::StringMatch(ref bindings, ref matcher) => {
+                ExceptionHandler::match_string_match(bindings, &matcher.regex, value)
+            }
+        }
+    }
+
+    fn match_string_match(bindings: &Vec<String>, regex: &Regex, value: &Value) -> MatchedBindings {
+        if let &Value::CharString(ref char_str) = value {
+            if let Some(mat) = regex.captures(char_str) {
+                let results =
+                    bindings
+                        .iter()
+                        .enumerate()
+                        .map(|(index, ref name)| {
+                            (name.to_string(), Value::CharString(mat.get(index + 1).unwrap().as_str().to_owned()))
+                        }).collect();
+
+                Some(results)
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 
@@ -273,5 +296,24 @@ mod test {
             ),
             handler.matches(v_number(1, 1))
         )
+    }
+
+    #[test]
+    fn matches_string_match() {
+        let handler = ExceptionHandler::new(
+            Rc::new(p_string_match(
+                vec!["toto"],
+                "^hello (.*?)$"
+            )),
+            Closure::blank(),
+        );
+        assert_eq!(
+            Some(
+                vec![("toto".to_owned(), v_string("world"))]
+                    .into_iter()
+                    .collect(),
+            ),
+            handler.matches(v_string("hello world"))
+        );
     }
 }

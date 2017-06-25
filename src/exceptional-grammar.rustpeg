@@ -1,6 +1,7 @@
-use ast::{Expression, Statement, Literal, Pattern};
+use ast::{Expression, Statement, Literal, Pattern, StringMatcher};
 use num::BigInt;
 use num::rational::{Ratio, BigRational};
+use regex::{escape, Regex};
 
 #[pub]
 statements -> Vec<Statement>
@@ -161,9 +162,9 @@ pattern -> Pattern
   = mapPattern
   / stringMatchPattern
   / numberPattern
-  / charStringPattern
   / booleanPattern
   / identifierPattern
+  / charStringPattern
 
 patternKey -> Pattern
   = numberPattern
@@ -201,8 +202,39 @@ identifierPattern -> Pattern
     }
 
 stringMatchPattern -> Pattern
-  = left:stringMatchAtom __ "++" __ right:(stringMatchPattern / stringMatchAtom) {
-      Pattern::StringMatch(Box::new(left), Box::new(right))
+  = pattern_list:stringMatchPatternList {
+      let (bindings, regex) =
+        pattern_list
+          .into_iter()
+          .fold((vec![], "".to_owned()), |(mut bindings, regex), pattern| {
+
+          match pattern {
+            Pattern::CharString(ref str) => {
+              (bindings, regex + &escape(&*str))
+            },
+            Pattern::Number(ref num) => {
+              println!("{}", num);
+              (bindings, regex)
+            },
+            Pattern::Identifier(ref name) => {
+              bindings.push(name.to_owned());
+              (bindings, regex + r#"(.*?)"#)
+            }
+            _ => panic!("unsupported in string pattern match"),
+          }
+        });
+
+      Pattern::StringMatch(bindings.to_vec(), StringMatcher { regex: Regex::new(&regex).unwrap() })
+   }
+
+stringMatchPatternList -> Vec<Pattern>
+  = left:stringMatchAtom __ "++" __ right:stringMatchPatternList {
+      let mut ret = vec![left];
+      ret.append(&mut right.clone());
+      ret
+    }
+  / left:stringMatchAtom __ "++" __ right:stringMatchAtom {
+      vec![left, right]
     }
 
 stringMatchAtom -> Pattern

@@ -1,4 +1,5 @@
 extern crate num;
+extern crate regex;
 
 #[cfg(test)]
 #[macro_use]

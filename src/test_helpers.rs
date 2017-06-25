@@ -11,6 +11,7 @@ use num::BigInt;
 use std::rc::*;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use regex::Regex;
 
 pub fn l_string(string: &str) -> Literal {
     Literal::CharString(string.to_owned())
@@ -55,8 +56,11 @@ pub fn p_ident(name: &str) -> Pattern {
     Pattern::Identifier(name.to_owned())
 }
 
-pub fn p_string_match(left: Pattern, right: Pattern) -> Pattern {
-    Pattern::StringMatch(Box::new(left), Box::new(right))
+pub fn p_string_match(bindings: Vec<&str>, regex: &str) -> Pattern {
+    Pattern::StringMatch(
+        bindings.into_iter().map(|b| b.to_owned()).collect(),
+        StringMatcher { regex: Regex::new(regex).unwrap() },
+    )
 }
 
 pub fn s_assign(name: &str, literal: Literal) -> Statement {
