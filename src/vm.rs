@@ -518,17 +518,17 @@ mod test {
     }
 
     #[test]
-    fn import_io() {
+    fn import_file() {
         let mut buffer = File::create("read_test.txt").unwrap();
 
         buffer.write(b"file content").unwrap();
 
-        let source = r#"let a = import("io")
+        let source = r#"let a = import("file")
              let res = ""
-             rescue({"io.result" => r}) do
+             rescue({"file.result" => r}) do
                res = r
              end
-             a.read_file("read_test.txt")"#;
+             a.read("read_test.txt")"#;
 
         let mut vm = Vm::new(source);
         vm.run();
