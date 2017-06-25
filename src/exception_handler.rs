@@ -43,13 +43,16 @@ impl ExceptionHandler {
     fn match_string_match(bindings: &Vec<String>, regex: &Regex, value: &Value) -> MatchedBindings {
         if let &Value::CharString(ref char_str) = value {
             if let Some(mat) = regex.captures(char_str) {
-                let results =
-                    bindings
-                        .iter()
-                        .enumerate()
-                        .map(|(index, ref name)| {
-                            (name.to_string(), Value::CharString(mat.get(index + 1).unwrap().as_str().to_owned()))
-                        }).collect();
+                let results = bindings
+                    .iter()
+                    .enumerate()
+                    .map(|(index, ref name)| {
+                        (
+                            name.to_string(),
+                            Value::CharString(mat.get(index + 1).unwrap().as_str().to_owned()),
+                        )
+                    })
+                    .collect();
 
                 Some(results)
             } else {
@@ -302,9 +305,24 @@ mod test {
     fn matches_string_match() {
         let handler = ExceptionHandler::new(
             Rc::new(p_string_match(
-                vec!["toto"],
-                "^hello (.*?)$"
+                vec!["toto", "titi"],
+                "^hello (.*?) foo (.*?)$",
             )),
+            Closure::blank(),
+        );
+        assert_eq!(
+            Some(
+                vec![
+                    ("toto".to_owned(), v_string("world")),
+                    ("titi".to_owned(), v_string("bar")),
+                ].into_iter()
+                    .collect(),
+            ),
+            handler.matches(v_string("hello world foo bar"))
+        );
+
+        let handler = ExceptionHandler::new(
+            Rc::new(p_string_match(vec!["toto"], "^hello 1 (.*?)$")),
             Closure::blank(),
         );
         assert_eq!(
@@ -313,7 +331,7 @@ mod test {
                     .into_iter()
                     .collect(),
             ),
-            handler.matches(v_string("hello world"))
+            handler.matches(v_string("hello 1 world"))
         );
     }
 }

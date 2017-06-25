@@ -231,7 +231,9 @@ stringMatchPattern -> Pattern
           }
         });
 
-      Pattern::StringMatch(bindings.to_vec(), StringMatcher { regex: Regex::new(&regex).unwrap() })
+      let full_regex = "^".to_string() + &regex + "$";
+
+      Pattern::StringMatch(bindings.to_vec(), StringMatcher { regex: Regex::new(&full_regex).unwrap() })
    }
 
 stringMatchPatternList -> Vec<Pattern>

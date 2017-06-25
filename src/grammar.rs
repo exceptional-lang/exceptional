@@ -282,19 +282,32 @@ mod test_statements {
     #[test]
     fn parses_rescue_with_string_matching_patterns() {
         assert_eq!(
-            parse_statements("rescue({ 1 => \"a\" ++ y }) do\nend"),
+            parse_statements(r#"rescue({ 1 => "a" ++ y }) do end"#),
             [
                 s_rescue(
-                    p_map(vec![(p_number(1, 1), p_string_match(vec!["y"], "a(.*?)"))]),
+                    p_map(vec![
+                        (p_number(1, 1), p_string_match(vec!["y"], "^a(.*?)$")),
+                    ]),
                     vec![],
                 ),
             ]
         );
         assert_eq!(
-            parse_statements("rescue({ 1 => \"a\" ++ y ++ \"c\" }) do\nend"),
+            parse_statements(r#"rescue({ 1 => "a" ++ y ++ "c" }) do end"#),
             [
                 s_rescue(
-                    p_map(vec![(p_number(1, 1), p_string_match(vec!["y"], "a(.*?)c"))]),
+                    p_map(vec![
+                        (p_number(1, 1), p_string_match(vec!["y"], "^a(.*?)c$")),
+                    ]),
+                    vec![],
+                ),
+            ]
+        );
+        assert_eq!(
+            parse_statements(r#"rescue({ "a" => a ++ 1.5 }) do end"#),
+            [
+                s_rescue(
+                    p_map(vec![(p_string("a"), p_string_match(vec!["a"], "^(.*?)3/2$"))]),
                     vec![],
                 ),
             ]
