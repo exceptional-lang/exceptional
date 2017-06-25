@@ -2,6 +2,7 @@ use ast::{Expression, Statement, Literal, Pattern, StringMatcher};
 use num::BigInt;
 use num::rational::{Ratio, BigRational};
 use regex::{escape, Regex};
+use num::PrimInt;
 
 #[pub]
 statements -> Vec<Statement>
@@ -108,13 +109,20 @@ number -> Literal
     }
 
 rawRatio -> BigRational
-  = digits:digits {
+  = c:digits "." d:digits {
+      let num = c + &d;
+      let power = 10.pow(d.len() as u32);
+      let int = BigInt::parse_bytes(num.as_bytes(), 10).unwrap();
+      Ratio::from_integer(int) / Ratio::from_integer(BigInt::from(power))
+    }
+  / digits:digits {
       Ratio::from_integer(BigInt::parse_bytes(digits.as_bytes(), 10).unwrap())
     }
 
 digits -> String
-  /* = c:$([0-9]+) "." d:$([0-9]+) { c.parse().unwrap() } */
-  = c:$([0-9]+) __ { c.parse().unwrap() }
+  = c:$([0-9]+) __ {
+      c.parse().unwrap()
+    }
 
 charString -> Literal
   = string:rawString { Literal::CharString(string) }
@@ -213,8 +221,7 @@ stringMatchPattern -> Pattern
               (bindings, regex + &escape(&*str))
             },
             Pattern::Number(ref num) => {
-              println!("{}", num);
-              (bindings, regex)
+              (bindings, regex + &format!("{}", num))
             },
             Pattern::Identifier(ref name) => {
               bindings.push(name.to_owned());

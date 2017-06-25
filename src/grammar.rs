@@ -8,8 +8,10 @@ mod test_literals {
     #[test]
     fn parses_number() {
         assert_eq!(parse_literal(&"1234"), l_number(1234, 1));
-
         assert_eq!(parse_literal(&"0011"), l_number(11, 1));
+        assert_eq!(parse_literal(&"11.5"), l_number(23, 2));
+        assert_eq!(parse_literal(&"11.1234"), l_number(111234, 10000));
+        assert_eq!(parse_literal(&"99.909"), l_number(99909, 1000));
     }
 
     #[test]
