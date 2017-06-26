@@ -236,7 +236,7 @@ stringMatchPattern -> Pattern
           }
         });
 
-      let full_regex = "^".to_string() + &regex + "$";
+      let full_regex = r#"(?s)\A"#.to_string() + &regex + r#"\z"#;
 
       Pattern::StringMatch(bindings.to_vec(), StringMatcher { regex: Regex::new(&full_regex).unwrap() })
    }

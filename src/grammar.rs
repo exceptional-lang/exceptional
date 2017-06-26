@@ -293,7 +293,7 @@ mod test_statements {
             [
                 s_rescue(
                     p_map(vec![
-                        (p_number(1, 1), p_string_match(vec!["y"], "^a(.*?)$")),
+                        (p_number(1, 1), p_string_match(vec!["y"], "a(.*?)")),
                     ]),
                     vec![],
                 ),
@@ -304,7 +304,7 @@ mod test_statements {
             [
                 s_rescue(
                     p_map(vec![
-                        (p_number(1, 1), p_string_match(vec!["y"], "^a(.*?)c$")),
+                        (p_number(1, 1), p_string_match(vec!["y"], "a(.*?)c")),
                     ]),
                     vec![],
                 ),
@@ -314,9 +314,7 @@ mod test_statements {
             parse_statements(r#"rescue({ "a" => a ++ 1.5 }) do end"#),
             [
                 s_rescue(
-                    p_map(vec![
-                        (p_string("a"), p_string_match(vec!["a"], "^(.*?)3/2$")),
-                    ]),
+                    p_map(vec![(p_string("a"), p_string_match(vec!["a"], "(.*?)3/2"))]),
                     vec![],
                 ),
             ]

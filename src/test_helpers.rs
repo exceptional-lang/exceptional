@@ -59,7 +59,7 @@ pub fn p_ident(name: &str) -> Pattern {
 pub fn p_string_match(bindings: Vec<&str>, regex: &str) -> Pattern {
     Pattern::StringMatch(
         bindings.into_iter().map(|b| b.to_owned()).collect(),
-        StringMatcher { regex: Regex::new(regex).unwrap() },
+        StringMatcher { regex: Regex::new(&(r#"(?s)\A"#.to_string() + regex + r#"\z"#)).unwrap() },
     )
 }
 

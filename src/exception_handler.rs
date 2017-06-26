@@ -306,7 +306,7 @@ mod test {
         let handler = ExceptionHandler::new(
             Rc::new(p_string_match(
                 vec!["toto", "titi"],
-                "^hello (.*?) foo (.*?)$",
+                r#"(?s)\Ahello (.*?) foo (.*?)\z"#,
             )),
             Closure::blank(),
         );
@@ -322,7 +322,7 @@ mod test {
         );
 
         let handler = ExceptionHandler::new(
-            Rc::new(p_string_match(vec!["toto"], "^hello 1 (.*?)$")),
+            Rc::new(p_string_match(vec!["toto"], r#"(?s)\Ahello 1 (.*?)\z"#)),
             Closure::blank(),
         );
         assert_eq!(
