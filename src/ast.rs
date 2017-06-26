@@ -75,7 +75,6 @@ pub enum Pattern {
 #[cfg(test)]
 mod test {
     use super::*;
-    use test_helpers::*;
     use std::collections::hash_map::DefaultHasher;
 
     fn string_matcher(str: &str) -> StringMatcher {

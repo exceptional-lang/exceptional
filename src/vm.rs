@@ -7,10 +7,9 @@ use value::Value;
 use closure::Closure;
 use native::find_lib;
 use native::FileDescriptorMap;
-use std::io::prelude::*;
-use std::fs::File;
 use std::fs;
-use std::os::unix::io::RawFd;
+use std::fs::File;
+use std::io::Write;
 
 use exception_handler::ExceptionHandler;
 

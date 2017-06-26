@@ -40,10 +40,6 @@ impl Clone for FileDescriptor {
 
 pub type FileDescriptorMap = HashMap<RawFd, FileDescriptor>;
 
-//fn native_file_open(vm: &mut Vm) -> InstructionSequence {
-//    vec![]
-//}
-
 fn io_result(key: &str, value: Value) -> Value {
     let map = vec![(Value::CharString(key.to_owned()), value)]
         .into_iter()
@@ -112,6 +108,9 @@ fn native_file_write(vm: &mut Vm) -> InstructionSequence {
     vm.push(result);
     vec![Instruction::Raise]
 }
+//fn native_file_open(vm: &mut Vm) -> InstructionSequence {
+//    vec![]
+//}
 
 //fn native_file_close(vm: &mut Vm) -> InstructionSequence {
 //    vec![]
