@@ -17,10 +17,17 @@ mod test_literals {
     #[test]
     fn parses_strings() {
         assert_eq!(parse_literal(&"\"\""), l_string(&""));
-
         assert_eq!(
-            parse_literal(&"\"string with more words\""),
+            parse_literal(&r#""string with more words""#),
             l_string(&"string with more words")
+        );
+        assert_eq!(
+            parse_literal(&"\"string with\nline breaks\""),
+            l_string(&"string with\nline breaks")
+        );
+        assert_eq!(
+            parse_literal(&r#""string with backslash\nline breaks\rand returns""#),
+            l_string(&"string with backslash\nline breaks\rand returns")
         );
     }
 

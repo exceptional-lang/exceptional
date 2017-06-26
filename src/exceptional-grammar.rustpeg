@@ -131,7 +131,12 @@ rawString -> String
   = '"' s:doubleQuotedCharacter* '"' __ { s.into_iter().collect() }
 
 doubleQuotedCharacter -> char
-  = !('"' / "\\" / eolChar) c:$. { c.chars().next().unwrap() }
+  = !('"') c:singleStringCharacter { c }
+
+singleStringCharacter -> char
+  = "\\n" { '\n' }
+  / "\\r" { '\r' }
+  / c:$(.) { c.chars().next().unwrap() }
 
 boolean -> Literal
   = b:rawBoolean { Literal::Boolean(b) }
