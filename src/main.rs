@@ -1,5 +1,8 @@
 extern crate num;
 extern crate regex;
+#[macro_use]
+extern crate log;
+extern crate fern;
 
 #[cfg(test)]
 #[macro_use]
@@ -20,12 +23,19 @@ use vm::Vm;
 use std::fs::File;
 use std::io::Read;
 
+
 fn exec(source: &String) {
     let mut vm = Vm::new(source);
     vm.run();
 }
 
 fn main() {
+    fern::Dispatch::new()
+        .level(log::LogLevelFilter::Debug)
+        .chain(std::io::stdout())
+        .apply()
+        .expect("failed to setup logging");
+
     let mut source = String::new();
     let file_read = env::args()
         .nth(1)
@@ -36,11 +46,12 @@ fn main() {
                 |err| err.to_string(),
             )
         });
-    if let Ok(_) = file_read {
-        println!("Starting VM with contents from ARGV file");
-        println!("{}", source);
-        exec(&source);
-    } else {
-        println!("No args found, stopping");
+    match file_read {
+        Ok(_) => {
+            info!("Starting VM with contents from ARGV file");
+            trace!("{}", source);
+            exec(&source);
+        }
+        Err(e) => error!("{}", e),
     }
 }

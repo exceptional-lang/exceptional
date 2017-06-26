@@ -76,10 +76,10 @@ impl Vm {
             let instruction;
 
             instruction = if let Some(i) = insn_result {
-                println!("next instruction: {:?}", i);
+                trace!("next instruction: {:?}", i);
                 i
             } else {
-                println!("instruction {:?} not found, terminating", insn_result);
+                trace!("instruction {:?} not found, terminating", insn_result);
                 break;
             };
 
@@ -220,9 +220,9 @@ impl Vm {
                     }
                 }
                 Instruction::Native(native_fn) => {
-                    println!("Starting native code");
+                    trace!("Starting native code");
                     let instructions = native_fn.call(self);
-                    println!("Finished native code");
+                    trace!("Finished native code");
                     self.reset_instructions(Rc::new(instructions), None)
                 }
                 _ => panic!("unknown instruction {:?}", instruction),
@@ -268,7 +268,7 @@ impl Vm {
                     return None;
                 }
 
-                println!("found handlers: {:?}", handlers.len());
+                trace!("found handlers: {:?}", handlers.len());
                 Some(handlers.first().unwrap().clone())
             })
             .take(1)
@@ -279,15 +279,15 @@ impl Vm {
                 for (key, value) in bindings.iter() {
                     map.local_assign(key, value.to_owned());
                 }
-                println!("bindings: {:?}", bindings);
+                trace!("bindings: {:?}", bindings);
                 (handler.closure.instructions.clone(), map)
             });
 
         if let Some((instructions, map)) = matched_handler {
-            println!("instructions: {:?}", instructions);
+            trace!("instructions: {:?}", instructions);
             self.reset_instructions(instructions, Some(map));
         } else {
-            println!("Uncaught exception ignored: {:?}", value);
+            debug!("Uncaught exception ignored: {:?}", value);
         }
     }
 
@@ -301,7 +301,7 @@ impl Vm {
         }
         self.instructions = instructions.clone();
         self.pc = 0;
-        println!("instructions have been reset!");
+        trace!("instructions have been reset!");
     }
 
     fn next_instruction(vm: &mut Vm) -> Option<Instruction> {

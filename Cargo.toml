@@ -7,6 +7,8 @@ build = "build.rs"
 [dependencies]
 num = "0.1"
 regex = "0.2"
+log = "0.3"
+fern = "0.4"
 
 [build-dependencies]
-peg = { version = "0.4" }
+peg = "0.4"
