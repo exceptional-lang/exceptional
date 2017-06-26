@@ -31,7 +31,7 @@ fn exec(source: &String) {
 
 fn main() {
     fern::Dispatch::new()
-        .level(log::LogLevelFilter::Debug)
+        .level(log::LogLevelFilter::Trace)
         .chain(std::io::stdout())
         .apply()
         .expect("failed to setup logging");
