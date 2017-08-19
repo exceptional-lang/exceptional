@@ -149,6 +149,10 @@ pub fn v_closure(
     Value::Closure(Rc::new(Box::new(args)), Rc::new(closure))
 }
 
+pub fn i_native_fn(code: NativeCode) -> Instruction {
+    Instruction::Native(NativeFunction::new(code))
+}
+
 macro_rules! assert_err {
     ($e:expr) => {
         match $e {

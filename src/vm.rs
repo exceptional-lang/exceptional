@@ -37,7 +37,7 @@ pub struct Vm {
     pc: usize,
     stack: Vec<Value>,
     frames: Vec<Frame>,
-    file_descriptors: FileDescriptorMap,
+    pub file_descriptors: FileDescriptorMap,
 }
 
 impl Vm {

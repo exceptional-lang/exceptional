@@ -292,9 +292,7 @@ mod test_statements {
             parse_statements(r#"rescue({ 1 => "a" ++ y }) do end"#),
             [
                 s_rescue(
-                    p_map(vec![
-                        (p_number(1, 1), p_string_match(vec!["y"], "a(.*?)")),
-                    ]),
+                    p_map(vec![(p_number(1, 1), p_string_match(vec!["y"], "a(.*?)"))]),
                     vec![],
                 ),
             ]
@@ -303,9 +301,7 @@ mod test_statements {
             parse_statements(r#"rescue({ 1 => "a" ++ y ++ "c" }) do end"#),
             [
                 s_rescue(
-                    p_map(vec![
-                        (p_number(1, 1), p_string_match(vec!["y"], "a(.*?)c")),
-                    ]),
+                    p_map(vec![(p_number(1, 1), p_string_match(vec!["y"], "a(.*?)c"))]),
                     vec![],
                 ),
             ]
