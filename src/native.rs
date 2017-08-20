@@ -36,6 +36,17 @@ impl FileDescriptor {
             _ => Err("can't read on this file descriptor".to_owned()),
         }
     }
+
+    fn write(&mut self, string: String) -> Result<usize, String> {
+        match self {
+            &mut FileDescriptor::TcpStream(ref mut s) => {
+                s.write(string.as_bytes()).or_else(|e| {
+                    Err(format!("couldn't write to file descriptor: {:?}", e))
+                })
+            }
+            _ => Err("can't write to this file descriptor".to_owned()),
+        }
+    }
 }
 
 impl PartialEq for FileDescriptor {
@@ -229,10 +240,14 @@ fn native_socket_tcp_listen(vm: &mut Vm) -> InstructionSequence {
 }
 
 fn native_socket_tcp_accept(vm: &mut Vm) -> InstructionSequence {
-    let result = match vm.fetch(&"fn".to_owned()).unwrap() {
+    let result = match vm.fetch(&"fn".to_owned()).expect(
+        "expected callback argument",
+    ) {
         closure @ Value::Closure(_, _) => Ok(closure),
         _ => Err("callback must be a function".to_owned()),
-    }.and_then(|closure| match vm.fetch(&"socket".to_owned()).unwrap() {
+    }.and_then(|closure| match vm.fetch(&"socket".to_owned()).expect(
+        "expected socket argument",
+    ) {
         Value::Number(ratio) => {
             ratio
                 .to_integer()
@@ -301,6 +316,37 @@ fn native_io_read_all(vm: &mut Vm) -> InstructionSequence {
     vec![Instruction::Raise]
 }
 
+fn native_io_write(vm: &mut Vm) -> InstructionSequence {
+    let result = {
+        match vm.fetch(&"string".to_owned()) {
+            Some(Value::CharString(string)) => Ok(string),
+            x => Err(format!("string argument is not a string: {:?}", x)),
+        }.and_then(|string| match vm.fetch(&"fd".to_owned()) {
+            Some(Value::Number(ratio)) => {
+                ratio
+                    .to_integer()
+                    .to_i32()
+                    .and_then(|fd| vm.file_descriptors.get_mut(&fd))
+                    .ok_or("file descriptor not found".to_owned())
+                    .and_then(|descriptor| descriptor.write(string))
+            }
+            x => Err(format!("fd argument is not a file descriptor: {:?}", x)),
+        })
+    };
+
+    let bytes = match result {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            vm.push(io_result("io.error", Value::CharString(e)));
+            return vec![Instruction::Raise];
+        }
+    };
+
+    let number = Value::Number(Ratio::new(BigInt::from(bytes), BigInt::from(1)));
+    vm.push(io_result("io.result", number));
+    vec![Instruction::Raise]
+}
+
 fn wrap_native_code(args: Vec<String>, f: NativeCode) -> Value {
     let parent_bindings = BindingMap::new(None);
     let closure = Closure::new(
@@ -344,6 +390,13 @@ fn io_lib() -> Value {
         (
             Value::CharString("read_all".to_owned()),
             wrap_native_code(vec!["fd".to_owned()], native_io_read_all as NativeCode)
+        ),
+        (
+            Value::CharString("write".to_owned()),
+            wrap_native_code(
+                vec!["fd".to_owned(), "string".to_owned()],
+                native_io_write as NativeCode,
+            )
         ),
     ].into_iter()
         .collect();
@@ -439,6 +492,26 @@ mod test {
             (v_string("tcp_accept"), tcp_accept_closure),
         ]);
         assert_eq!(Some(lib), find_lib("socket"));
+    }
+
+    #[test]
+    fn find_lib_returns_io() {
+        let read_all_closure = v_closure(
+            vec!["fd".to_owned()],
+            vec![i_native_fn(native_io_read_all as NativeCode)],
+            None,
+        );
+        let write_closure = v_closure(
+            vec!["fd".to_owned(), "string".to_owned()],
+            vec![i_native_fn(native_io_write as NativeCode)],
+            None,
+        );
+
+        let lib = v_map(vec![
+            (v_string("read_all"), read_all_closure),
+            (v_string("write"), write_closure),
+        ]);
+        assert_eq!(Some(lib), find_lib("io"));
     }
 
     #[test]
@@ -590,6 +663,29 @@ mod test {
         assert_eq!(vec![Instruction::Raise], result);
         assert_eq!(
             v_map(vec![(v_string("io.result"), v_string("foo"))]),
+            vm.pop().unwrap()
+        )
+    }
+
+    #[test]
+    fn native_io_write_writes_to_a_file_descriptor_and_raises() {
+        let mut vm = Vm::empty();
+        let listener = TcpListener::bind("127.0.0.1:8084").unwrap();
+        let mut connector = TcpStream::connect("127.0.0.1:8084").unwrap();
+
+        let (socket, _) = listener.accept().unwrap();
+
+        vm.local_assign(&"fd".to_owned(), v_number(socket.as_raw_fd() as i64, 1));
+        vm.local_assign(&"string".to_owned(), v_string("foo bar"));
+        vm.file_descriptors.insert(
+            socket.as_raw_fd(),
+            FileDescriptor::TcpStream(socket),
+        );
+
+        let result = native_io_write(&mut vm);
+        assert_eq!(vec![Instruction::Raise], result);
+        assert_eq!(
+            v_map(vec![(v_string("io.result"), v_number(7, 1))]),
             vm.pop().unwrap()
         )
     }
