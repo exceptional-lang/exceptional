@@ -4,7 +4,7 @@
 
 Exceptional is a toy language and VM. It's original idea was the result of a discussion on using exceptions for control-flow. I joked that if _I_ were to create a language, the programmer would not have to choose between control-flow structures and exceptions; there would be no control-flow structures.
 
-Exceptional's VM is a terrible VM. Almost every line of code can be carbon-dated as I tried to learn Rust the hard way. The bytecode is probably garbage. If only Robert Nystrom hard finished [his book](http://www.craftinginterpreters.com/contents.html).
+Exceptional's VM is a terrible VM. Almost every line of code can be carbon-dated as I tried to learn Rust the hard way. The bytecode is probably garbage. If only Robert Nystrom had finished writing [his book](http://www.craftinginterpreters.com/contents.html).
 
 ## Language
 
