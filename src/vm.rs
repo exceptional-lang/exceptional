@@ -353,7 +353,7 @@ mod test {
     #[test]
     fn function_call() {
         let source = r#"let a = ""
-            let x = def() do
+            let x = fn() do
               a = 1
             end
             x()"#;
@@ -370,7 +370,7 @@ mod test {
     fn function_call_with_args() {
         let source = r#"let a = ""
             let b = ""
-            let x = def(c, d) do
+            let x = fn(c, d) do
               a = c
               b = d
             end
@@ -406,7 +406,7 @@ mod test {
     #[test]
     #[should_panic(expected = "wrong number of arguments")]
     fn function_with_wrong_arg_count() {
-        let source = "let x = def(a, b) do
+        let source = "let x = fn(a, b) do
             end
             x(1)";
 
@@ -420,7 +420,7 @@ mod test {
             rescue(id) do
                 a = id
             end
-            let x = def(b) do
+            let x = fn(b) do
                 raise(b)
             end
             x(1)"#;
@@ -439,7 +439,7 @@ mod test {
             rescue({"b" => id}) do
                 a = id
             end
-            let x = def(a, b) do
+            let x = fn(a, b) do
                 raise({"a" => 1, "b" => b})
             end
             x(2, 1)"#;
@@ -490,7 +490,7 @@ mod test {
 
     #[test]
     fn fibonacci() {
-        let source = r#"let fib = def(k) do
+        let source = r#"let fib = fn(k) do
           rescue({ "m" => m, "k" => 0 }) do
             raise({ "result" => m })
           end
@@ -500,7 +500,7 @@ mod test {
           raise({ "m" => 0, "n" => 1, "k" => k })
         end
         let res = ""
-        let setup = def() do
+        let setup = fn() do
           rescue({ "result" => r }) do
             res = r
           end

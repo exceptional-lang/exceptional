@@ -146,7 +146,7 @@ rawBoolean -> bool
   / b:"true" __ { true }
 
 functionDefinition -> Expression
-  = "def" lparen args:functionArgumentList rparen block:block {
+  = "fn" lparen args:functionArgumentList rparen block:block {
       Expression::Literal(
         Literal::Fn(Box::new(args), Box::new(block))
       )
@@ -265,7 +265,7 @@ comment
 
 keywords
   = let
-  / "def"
+  / "fn"
   / "do"
   / end
   / raise

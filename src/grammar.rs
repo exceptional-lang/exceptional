@@ -114,7 +114,7 @@ mod test_expressions {
     #[test]
     fn parses_simple_functions() {
         assert_eq!(
-            parse_expression(&"def() do end"),
+            parse_expression(&"fn() do end"),
             e_literal(l_function(vec![], vec![]))
         )
     }
@@ -122,7 +122,7 @@ mod test_expressions {
     #[test]
     fn parses_functions_with_args() {
         assert_eq!(
-            parse_expression(&"def(a, b) do end"),
+            parse_expression(&"fn(a, b) do end"),
             e_literal(l_function(vec!["a".to_owned(), "b".to_owned()], vec![]))
         )
     }
@@ -130,7 +130,7 @@ mod test_expressions {
     #[test]
     fn prases_functions_with_bodies() {
         assert_eq!(
-            parse_expression(&"def(a, b) do\nlet c = 1\nend"),
+            parse_expression(&"fn(a, b) do\nlet c = 1\nend"),
             e_literal(l_function(
                 vec!["a".to_owned(), "b".to_owned()],
                 vec![s_assign(&"c", l_number(1, 1))],
@@ -211,7 +211,7 @@ mod test_statements {
             e_literal(l_function(vec!["x".to_owned()], vec![])),
         ];
         assert_eq!(
-            parse_statements("a(1 + 2, def(x) do end)"),
+            parse_statements("a(1 + 2, fn(x) do end)"),
             [s_call(e_identifier(&"a"), args)]
         )
     }
