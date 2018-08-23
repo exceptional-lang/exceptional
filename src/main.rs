@@ -9,20 +9,19 @@ extern crate fern;
 mod test_helpers;
 
 mod ast;
-mod native;
-mod instructions;
-mod exception_handler;
-mod value;
-mod grammar;
-mod vm;
+mod binding_map;
 mod closure;
 mod compiler;
-mod binding_map;
+mod exception_handler;
+mod grammar;
+mod instructions;
+mod native;
+mod value;
+mod vm;
 use std::env;
-use vm::Vm;
 use std::fs::File;
 use std::io::Read;
-
+use vm::Vm;
 
 fn exec(source: &String) {
     let mut vm = Vm::new(source);
@@ -42,9 +41,8 @@ fn main() {
         .ok_or("No path given, stopping".to_string())
         .and_then(|path| File::open(path).map_err(|err| err.to_string()))
         .and_then(|mut file| {
-            file.read_to_string(&mut source).map_err(
-                |err| err.to_string(),
-            )
+            file.read_to_string(&mut source)
+                .map_err(|err| err.to_string())
         });
     match file_read {
         Ok(_) => {

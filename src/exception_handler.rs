@@ -1,12 +1,12 @@
-use value::Value;
-use closure::Closure;
 use ast::*;
+use closure::Closure;
+use value::Value;
 
-use std::rc::Rc;
-use std::collections::BTreeMap;
-use std::collections::btree_map::Entry;
 use num::rational::BigRational;
 use regex::Regex;
+use std::collections::btree_map::Entry;
+use std::collections::BTreeMap;
+use std::rc::Rc;
 
 pub type MatchedBindings = Option<BTreeMap<String, Value>>;
 
@@ -65,36 +65,30 @@ impl ExceptionHandler {
 
     fn match_number(ratio: &BigRational, value: &Value) -> MatchedBindings {
         match value {
-            &Value::Number(ref number) => {
-                match ratio.eq(number) {
-                    true => Some(BTreeMap::new()),
-                    _ => None,
-                }
-            }
+            &Value::Number(ref number) => match ratio.eq(number) {
+                true => Some(BTreeMap::new()),
+                _ => None,
+            },
             _ => None,
         }
     }
 
     fn match_string(string: &String, value: &Value) -> MatchedBindings {
         match value {
-            &Value::CharString(ref str) => {
-                match str.eq(string) {
-                    true => Some(BTreeMap::new()),
-                    _ => None,
-                }
-            }
+            &Value::CharString(ref str) => match str.eq(string) {
+                true => Some(BTreeMap::new()),
+                _ => None,
+            },
             _ => None,
         }
     }
 
     fn match_bool(b: bool, value: &Value) -> MatchedBindings {
         match value {
-            &Value::Boolean(other_bool) => {
-                match b == other_bool {
-                    true => Some(BTreeMap::new()),
-                    _ => None,
-                }
-            }
+            &Value::Boolean(other_bool) => match b == other_bool {
+                true => Some(BTreeMap::new()),
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -109,9 +103,7 @@ impl ExceptionHandler {
                     let maybe_nested_bindings = btreemap
                         .borrow()
                         .get(&Rc::new(key_as_value))
-                        .and_then(|value| {
-                            ExceptionHandler::match_pattern(pattern_value, value)
-                        });
+                        .and_then(|value| ExceptionHandler::match_pattern(pattern_value, value));
 
                     if let None = maybe_nested_bindings {
                         return None;
@@ -153,9 +145,9 @@ impl ExceptionHandler {
 
 #[cfg(test)]
 mod test {
-    use test_helpers::*;
     use super::*;
     use std::rc::Rc;
+    use test_helpers::*;
 
     #[test]
     fn matches_numbers() {
@@ -190,12 +182,10 @@ mod test {
     #[test]
     fn matches_simple_map() {
         let handler = ExceptionHandler::new(
-            Rc::new(Pattern::Map(vec![
-                (
-                    Pattern::Number(build_ratio(1, 1)),
-                    Pattern::Identifier("toto".to_owned())
-                ),
-            ])),
+            Rc::new(Pattern::Map(vec![(
+                Pattern::Number(build_ratio(1, 1)),
+                Pattern::Identifier("toto".to_owned()),
+            )])),
             Closure::blank(),
         );
         assert_eq!(
@@ -219,11 +209,11 @@ mod test {
             Rc::new(Pattern::Map(vec![
                 (
                     Pattern::Number(build_ratio(1, 1)),
-                    Pattern::Identifier("toto".to_owned())
+                    Pattern::Identifier("toto".to_owned()),
                 ),
                 (
                     Pattern::Number(build_ratio(2, 1)),
-                    Pattern::Identifier("toto".to_owned())
+                    Pattern::Identifier("toto".to_owned()),
                 ),
             ])),
             Closure::blank(),
@@ -250,17 +240,13 @@ mod test {
 
     #[test]
     fn matches_recursive_maps() {
-        let pattern = Pattern::Map(vec![
-            (
-                Pattern::Number(build_ratio(1, 1)),
-                Pattern::Map(vec![
-                    (
-                        Pattern::Number(build_ratio(2, 1)),
-                        Pattern::Identifier("toto".to_owned())
-                    ),
-                ])
-            ),
-        ]);
+        let pattern = Pattern::Map(vec![(
+            Pattern::Number(build_ratio(1, 1)),
+            Pattern::Map(vec![(
+                Pattern::Number(build_ratio(2, 1)),
+                Pattern::Identifier("toto".to_owned()),
+            )]),
+        )]);
         let handler = ExceptionHandler::new(Rc::new(pattern), Closure::blank());
         assert_eq!(
             Some(
@@ -268,12 +254,10 @@ mod test {
                     .into_iter()
                     .collect(),
             ),
-            handler.matches(v_map(vec![
-                (
-                    v_number(1, 1),
-                    v_map(vec![(v_number(2, 1), v_string("titi"))])
-                ),
-            ]))
+            handler.matches(v_map(vec![(
+                v_number(1, 1),
+                v_map(vec![(v_number(2, 1), v_string("titi"))]),
+            )]))
         );
     }
 

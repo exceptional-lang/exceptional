@@ -1,11 +1,11 @@
 use closure::Closure;
 
-use std::collections::BTreeMap;
-use std::rc::Rc;
-use std::cell::RefCell;
+use num::bigint::{BigInt, ToBigInt};
 use num::rational::{BigRational, Ratio};
 use num::{range, ToPrimitive, Zero};
-use num::bigint::{BigInt, ToBigInt};
+use std::cell::RefCell;
+use std::collections::BTreeMap;
+use std::rc::Rc;
 
 #[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
 pub enum Value {
@@ -33,22 +33,23 @@ impl Value {
                     Ok(Value::CharString("".to_owned()))
                 }
             }
-            (&Value::Closure(_, _), Value::Closure(_, _)) => Err(format!(
-                "Subtraction of closures is not supported"
-            )),
+            (&Value::Closure(_, _), Value::Closure(_, _)) => {
+                Err(format!("Subtraction of closures is not supported"))
+            }
             (&Value::Boolean(ref lbool), Value::Boolean(ref rbool)) => {
                 Ok(Value::Boolean(lbool ^ rbool))
             }
             (&Value::Map(ref lmap), Value::Map(ref rmap)) => {
-                let result = lmap.borrow()
+                let result = lmap
+                    .borrow()
                     .clone()
                     .into_iter()
-                    .filter(|&(ref key, ref value)| if let Some(rvalue) =
-                        rmap.borrow().get(key)
-                    {
-                        rvalue != value
-                    } else {
-                        true
+                    .filter(|&(ref key, ref value)| {
+                        if let Some(rvalue) = rmap.borrow().get(key) {
+                            rvalue != value
+                        } else {
+                            true
+                        }
                     })
                     .collect();
                 Ok(Value::Map(Rc::new(RefCell::new(result))))
@@ -67,10 +68,10 @@ impl Value {
                     .map(|_| str.clone())
                     .collect::<Vec<String>>()
                     .join("");
-                let truncation = (ratio.ceil() - ratio.clone()) *
-                    Ratio::from_integer((str.len() as i64).to_bigint().unwrap());
-                let truncation_index = extended.len().to_bigint().unwrap() -
-                    truncation.to_integer();
+                let truncation = (ratio.ceil() - ratio.clone())
+                    * Ratio::from_integer((str.len() as i64).to_bigint().unwrap());
+                let truncation_index =
+                    extended.len().to_bigint().unwrap() - truncation.to_integer();
                 Ok(Value::CharString(
                     extended[..truncation_index.to_usize().unwrap()].to_owned(),
                 ))
@@ -174,9 +175,7 @@ mod test {
                 (v_number(2, 1), v_number(2, 1)),
             ]).sub(v_map(vec![(v_number(2, 1), v_number(2, 2))]))
         );
-        assert_err!(v_map(vec![(v_number(1, 1), v_number(1, 1))]).sub(
-            v_number(1, 1),
-        ));
+        assert_err!(v_map(vec![(v_number(1, 1), v_number(1, 1))]).sub(v_number(1, 1)));
     }
 
     #[test]
@@ -241,23 +240,9 @@ mod test {
                 (v_number(1, 1), v_number(1, 1)),
                 (v_number(2, 1), v_number(2, 1)),
             ])),
-            v_map(vec![(v_number(1, 1), v_number(1, 1))]).add(
-                v_map(vec![
-                    (
-                        v_number(
-                            2,
-                            1,
-                        ),
-                        v_number(
-                            2,
-                            1,
-                        )
-                    ),
-                ]),
-            )
+            v_map(vec![(v_number(1, 1), v_number(1, 1))])
+                .add(v_map(vec![(v_number(2, 1), v_number(2, 1))]))
         );
-        assert_err!(v_map(vec![(v_number(1, 1), v_number(1, 1))]).add(
-            v_number(1, 1),
-        ));
+        assert_err!(v_map(vec![(v_number(1, 1), v_number(1, 1))]).add(v_number(1, 1)));
     }
 }

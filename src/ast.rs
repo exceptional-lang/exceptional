@@ -78,7 +78,9 @@ mod test {
     use std::collections::hash_map::DefaultHasher;
 
     fn string_matcher(str: &str) -> StringMatcher {
-        StringMatcher { regex: Regex::new(str).unwrap() }
+        StringMatcher {
+            regex: Regex::new(str).unwrap(),
+        }
     }
 
     #[test]

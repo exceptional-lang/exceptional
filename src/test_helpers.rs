@@ -1,17 +1,16 @@
 #[cfg(test)]
-
 use ast::*;
 use binding_map::BindingMap;
-use grammar::*;
-use value::Value;
 use closure::Closure;
+use grammar::*;
 use instructions::*;
 use num::rational::Ratio;
 use num::BigInt;
-use std::rc::*;
+use regex::Regex;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use regex::Regex;
+use std::rc::*;
+use value::Value;
 
 pub fn l_string(string: &str) -> Literal {
     Literal::CharString(string.to_owned())
@@ -59,7 +58,9 @@ pub fn p_ident(name: &str) -> Pattern {
 pub fn p_string_match(bindings: Vec<&str>, regex: &str) -> Pattern {
     Pattern::StringMatch(
         bindings.into_iter().map(|b| b.to_owned()).collect(),
-        StringMatcher { regex: Regex::new(&(r#"(?s)\A"#.to_string() + regex + r#"\z"#)).unwrap() },
+        StringMatcher {
+            regex: Regex::new(&(r#"(?s)\A"#.to_string() + regex + r#"\z"#)).unwrap(),
+        },
     )
 }
 
@@ -157,9 +158,7 @@ macro_rules! assert_err {
     ($e:expr) => {
         match $e {
             Err(_) => {}
-            res => {
-                panic!("assertion failed: expected Err, got: {:?}", res)
-            }
+            res => panic!("assertion failed: expected Err, got: {:?}", res),
         }
-    }
+    };
 }

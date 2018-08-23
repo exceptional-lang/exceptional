@@ -1,7 +1,7 @@
 use binding_map::BindingMap;
 use instructions::InstructionSequence;
-use value::Value;
 use std::rc::Rc;
+use value::Value;
 
 #[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
 pub struct Closure {
@@ -26,13 +26,12 @@ impl Closure {
 
     pub fn init_map(&self, local_bindings: Vec<(String, Value)>) -> BindingMap {
         let map = BindingMap::new(Some(&self.parent_bindings));
-        local_bindings.into_iter().fold(
-            map,
-            |mut map, (arg_name, value)| {
+        local_bindings
+            .into_iter()
+            .fold(map, |mut map, (arg_name, value)| {
                 map.local_assign(&arg_name, value);
                 map
-            },
-        )
+            })
     }
 }
 

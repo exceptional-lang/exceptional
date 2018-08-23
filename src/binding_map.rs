@@ -1,7 +1,7 @@
-use value::Value;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
-use std::cell::RefCell;
+use value::Value;
 
 #[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
 pub struct BindingMap {
@@ -24,12 +24,10 @@ impl BindingMap {
     pub fn fetch(&self, binding_name: &String) -> Option<Value> {
         match self.map.borrow().get(binding_name) {
             Some(value) => Some(value.clone()),
-            None => {
-                match self.parent {
-                    Some(ref parent) => parent.fetch(binding_name),
-                    None => None,
-                }
-            }
+            None => match self.parent {
+                Some(ref parent) => parent.fetch(binding_name),
+                None => None,
+            },
         }
     }
 
@@ -40,12 +38,10 @@ impl BindingMap {
     pub fn assign(&mut self, binding_name: &String, value: Value) {
         match self.has_binding(binding_name) {
             true => self.local_assign(binding_name, value),
-            false => {
-                match self.parent {
-                    Some(ref mut parent) => parent.assign(binding_name, value),
-                    None => panic!("no such binding"),
-                }
-            }
+            false => match self.parent {
+                Some(ref mut parent) => parent.assign(binding_name, value),
+                None => panic!("no such binding"),
+            },
         }
     }
 
@@ -57,10 +53,10 @@ impl BindingMap {
 #[cfg(test)]
 mod test {
     use super::*;
-    use test_helpers::*;
+    use std::cell::RefCell;
     use std::collections::BTreeMap;
     use std::rc::Rc;
-    use std::cell::RefCell;
+    use test_helpers::*;
 
     #[test]
     fn new() {

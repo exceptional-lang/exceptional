@@ -1,4 +1,3 @@
-
 include!(concat!(env!("OUT_DIR"), "/exceptional-grammar.rs"));
 
 #[cfg(test)]
@@ -62,9 +61,10 @@ mod test_expressions {
 
         assert_eq!(
             parse_expression(&"{ \"a\" => 1 }"),
-            e_literal(l_map(
-                vec![(e_literal(l_string(&"a")), e_literal(l_number(1, 1)))],
-            ))
+            e_literal(l_map(vec![(
+                e_literal(l_string(&"a")),
+                e_literal(l_number(1, 1)),
+            )],))
         )
     }
 
@@ -163,13 +163,11 @@ mod test_statements {
     fn parses_map_assign() {
         assert_eq!(
             parse_statements(&"a[b][c] = d"),
-            [
-                s_index_assign(
-                    e_index_access(e_identifier(&"a"), e_identifier(&"b")),
-                    e_identifier(&"c"),
-                    e_identifier(&"d"),
-                ),
-            ]
+            [s_index_assign(
+                e_index_access(e_identifier(&"a"), e_identifier(&"b")),
+                e_identifier(&"c"),
+                e_identifier(&"d"),
+            ),]
         )
     }
 
@@ -181,26 +179,21 @@ mod test_statements {
         );
         assert_eq!(
             parse_statements(&"toto.titi()"),
-            vec![
-                s_call(
-                    e_index_access(e_identifier(&"toto"), e_literal(l_string(&"titi"))),
-                    vec![]
-                ),
-            ]
+            vec![s_call(
+                e_index_access(e_identifier(&"toto"), e_literal(l_string(&"titi"))),
+                vec![],
+            )]
         );
-
     }
 
     #[test]
     fn parses_calls_with_simple_args() {
         assert_eq!(
             parse_statements("a(1, b)"),
-            [
-                s_call(
-                    e_identifier(&"a"),
-                    vec![e_literal(l_number(1, 1)), e_identifier(&"b")],
-                ),
-            ]
+            [s_call(
+                e_identifier(&"a"),
+                vec![e_literal(l_number(1, 1)), e_identifier(&"b")],
+            ),]
         )
     }
 
@@ -268,21 +261,20 @@ mod test_statements {
     fn parses_rescue_with_map_patterns() {
         assert_eq!(
             parse_statements("rescue({ 1 => y }) do\nend"),
-            [
-                s_rescue(p_map(vec![(p_number(1, 1), p_ident("y"))]), vec![]),
-            ]
+            [s_rescue(
+                p_map(vec![(p_number(1, 1), p_ident("y"))]),
+                vec![]
+            ),]
         );
         assert_eq!(
             parse_statements("rescue({ \"m\" => y, \"n\" => z }) do\nend"),
-            [
-                s_rescue(
-                    p_map(vec![
-                        (p_string("m"), p_ident("y")),
-                        (p_string("n"), p_ident("z")),
-                    ]),
-                    vec![],
-                ),
-            ]
+            [s_rescue(
+                p_map(vec![
+                    (p_string("m"), p_ident("y")),
+                    (p_string("n"), p_ident("z")),
+                ]),
+                vec![],
+            ),]
         )
     }
 
@@ -290,30 +282,24 @@ mod test_statements {
     fn parses_rescue_with_string_matching_patterns() {
         assert_eq!(
             parse_statements(r#"rescue({ 1 => "a" ++ y }) do end"#),
-            [
-                s_rescue(
-                    p_map(vec![(p_number(1, 1), p_string_match(vec!["y"], "a(.*?)"))]),
-                    vec![],
-                ),
-            ]
+            [s_rescue(
+                p_map(vec![(p_number(1, 1), p_string_match(vec!["y"], "a(.*?)"))]),
+                vec![],
+            ),]
         );
         assert_eq!(
             parse_statements(r#"rescue({ 1 => "a" ++ y ++ "c" }) do end"#),
-            [
-                s_rescue(
-                    p_map(vec![(p_number(1, 1), p_string_match(vec!["y"], "a(.*?)c"))]),
-                    vec![],
-                ),
-            ]
+            [s_rescue(
+                p_map(vec![(p_number(1, 1), p_string_match(vec!["y"], "a(.*?)c"))]),
+                vec![],
+            ),]
         );
         assert_eq!(
             parse_statements(r#"rescue({ "a" => a ++ 1.5 }) do end"#),
-            [
-                s_rescue(
-                    p_map(vec![(p_string("a"), p_string_match(vec!["a"], "(.*?)3/2"))]),
-                    vec![],
-                ),
-            ]
+            [s_rescue(
+                p_map(vec![(p_string("a"), p_string_match(vec!["a"], "(.*?)3/2"))]),
+                vec![],
+            ),]
         );
     }
 }

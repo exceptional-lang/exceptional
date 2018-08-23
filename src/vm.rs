@@ -1,20 +1,20 @@
-use grammar::*;
 use ast::*;
-use compiler::*;
-use instructions::*;
 use binding_map::BindingMap;
-use value::Value;
 use closure::Closure;
+use compiler::*;
+use grammar::*;
+use instructions::*;
 use native::find_lib;
 use native::FileDescriptorMap;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
+use value::Value;
 
 use exception_handler::ExceptionHandler;
 
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Clone, Eq, Debug, PartialEq)]
 struct Frame {
@@ -91,17 +91,19 @@ impl Vm {
                 }
                 Instruction::Assign(ref binding_name) => {
                     let value = self.stack.pop().unwrap();
-                    self.frames.last_mut().unwrap().bindings.assign(
-                        binding_name,
-                        value,
-                    )
+                    self.frames
+                        .last_mut()
+                        .unwrap()
+                        .bindings
+                        .assign(binding_name, value)
                 }
                 Instruction::LocalAssign(ref binding_name) => {
                     let value = self.stack.pop().unwrap();
-                    self.frames.last_mut().unwrap().bindings.local_assign(
-                        binding_name,
-                        value,
-                    )
+                    self.frames
+                        .last_mut()
+                        .unwrap()
+                        .bindings
+                        .local_assign(binding_name, value)
                 }
                 Instruction::Call(arg_size) => {
                     let closure_info = match self.stack.pop() {
@@ -110,9 +112,7 @@ impl Vm {
                         None => Err(format!("expected a closure, got None")),
                     };
 
-                    let new_stack_length = {
-                        self.stack.len() - arg_size
-                    };
+                    let new_stack_length = { self.stack.len() - arg_size };
                     let mut args = self.stack.split_off(new_stack_length);
                     let (closure_args, closure) = match closure_info {
                         Ok(info) => info,
@@ -153,13 +153,13 @@ impl Vm {
                     self.stack.push(Value::Map(Rc::new(RefCell::new(map))))
                 }
                 Instruction::Rescue(ref pattern, ref iseq) => {
-                    let top_bindings = {
-                        &mut self.frames.last_mut().unwrap().bindings.clone()
-                    };
+                    let top_bindings = { &mut self.frames.last_mut().unwrap().bindings.clone() };
                     let closure = Closure::new(iseq.clone(), top_bindings);
-                    self.frames.last_mut().unwrap().exception_handlers.push(
-                        ExceptionHandler::new(pattern.clone(), closure),
-                    )
+                    self.frames
+                        .last_mut()
+                        .unwrap()
+                        .exception_handlers
+                        .push(ExceptionHandler::new(pattern.clone(), closure))
                 }
                 Instruction::Raise => {
                     let raised_value = self.stack.pop().unwrap();
@@ -251,7 +251,8 @@ impl Vm {
     }
 
     fn raise(&mut self, value: Value) {
-        let matched_handler = self.frames
+        let matched_handler = self
+            .frames
             .iter()
             .rev()
             .filter_map(|frame| {
@@ -328,7 +329,6 @@ impl Vm {
         }
     }
 }
-
 
 #[cfg(test)]
 mod test {

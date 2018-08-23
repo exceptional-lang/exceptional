@@ -1,9 +1,9 @@
 use ast::{Literal, Pattern};
-use std::rc::Rc;
-use vm::Vm;
 use std::cmp::Ordering;
 use std::fmt;
 use std::mem::transmute;
+use std::rc::Rc;
+use vm::Vm;
 
 #[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
 pub enum Op {
@@ -59,7 +59,6 @@ impl fmt::Debug for NativeFunction {
     }
 }
 
-
 #[derive(Clone, Eq, Debug, PartialEq, PartialOrd, Ord)]
 pub enum Instruction {
     Clear,
@@ -99,7 +98,8 @@ mod test {
             NativeFunction::new(mock as NativeCode)
         );
         assert!(
-            NativeFunction::new(mock as NativeCode) != NativeFunction::new(other_mock as NativeCode)
+            NativeFunction::new(mock as NativeCode)
+                != NativeFunction::new(other_mock as NativeCode)
         );
     }
 

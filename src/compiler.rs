@@ -50,24 +50,22 @@ fn compile_statement(statement: &Statement) -> InstructionSequence {
 
 fn compile_expression(expression: &Expression) -> InstructionSequence {
     match expression {
-        &Expression::Literal(ref literal) => {
-            match literal {
-                &Literal::Map(ref pairs) => {
-                    let mut map_instructions = pairs
-                        .iter()
-                        .flat_map(|&(ref key, ref value)| {
-                            let mut insns = compile_expression(key);
-                            insns.extend(compile_expression(value).iter().cloned());
-                            insns
-                        })
-                        .collect::<InstructionSequence>();
+        &Expression::Literal(ref literal) => match literal {
+            &Literal::Map(ref pairs) => {
+                let mut map_instructions = pairs
+                    .iter()
+                    .flat_map(|&(ref key, ref value)| {
+                        let mut insns = compile_expression(key);
+                        insns.extend(compile_expression(value).iter().cloned());
+                        insns
+                    })
+                    .collect::<InstructionSequence>();
 
-                    map_instructions.push(Instruction::MakeMap(pairs.len()));
-                    map_instructions
-                }
-                _ => vec![Instruction::Push(literal.to_owned())],
+                map_instructions.push(Instruction::MakeMap(pairs.len()));
+                map_instructions
             }
-        }
+            _ => vec![Instruction::Push(literal.to_owned())],
+        },
         &Expression::Identifier(ref binding_name) => {
             vec![Instruction::Fetch(binding_name.to_owned())]
         }
