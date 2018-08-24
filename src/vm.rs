@@ -225,7 +225,6 @@ impl Vm {
                     trace!("Finished native code");
                     self.reset_instructions(Rc::new(instructions), None)
                 }
-                _ => panic!("unknown instruction {:?}", instruction),
             };
         }
     }
