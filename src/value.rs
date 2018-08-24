@@ -2,7 +2,7 @@ use closure::Closure;
 
 use num::bigint::{BigInt, ToBigInt};
 use num::rational::{BigRational, Ratio};
-use num::{range, ToPrimitive, Zero};
+use num::{range, One, ToPrimitive, Zero};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
@@ -63,7 +63,8 @@ impl Value {
             (&Value::Number(ref lratio), Value::Number(ref rratio)) => {
                 Ok(Value::Number(lratio * rratio))
             }
-            (&Value::CharString(ref str), Value::Number(ref ratio)) => {
+            (&Value::CharString(ref str), Value::Number(ref ratio))
+            | (&Value::Number(ref ratio), Value::CharString(ref str)) => {
                 let extended: String = range(BigInt::from(0), ratio.ceil().to_integer())
                     .map(|_| str.clone())
                     .collect::<Vec<String>>()
@@ -76,8 +77,56 @@ impl Value {
                     extended[..truncation_index.to_usize().unwrap()].to_owned(),
                 ))
             }
+            (&Value::Map(ref map), Value::Number(ref ratio))
+            | (&Value::Number(ref ratio), Value::Map(ref map)) => {
+                let result = map
+                    .borrow()
+                    .clone()
+                    .into_iter()
+                    .map(|(ref key, ref value)| {
+                        (
+                            key.mul(Value::Number(ratio.clone()))
+                                .expect("everything is multipliable by a number"),
+                            value
+                                .mul(Value::Number(ratio.clone()))
+                                .expect("everything is multipliable by a number"),
+                        )
+                    })
+                    .collect();
+
+                Ok(Value::Map(Rc::new(RefCell::new(result))))
+            }
+            (&Value::Boolean(ref boolean), Value::Number(ref ratio))
+            | (&Value::Number(ref ratio), Value::Boolean(ref boolean)) => match boolean {
+                &true => Ok(Value::Number(ratio.clone())),
+                &false => Ok(Value::Number(Ratio::new(BigInt::zero(), BigInt::one()))),
+            },
+            (&Value::CharString(ref str), Value::Boolean(ref boolean))
+            | (&Value::Boolean(ref boolean), Value::CharString(ref str)) => match boolean {
+                &true => Ok(Value::CharString(str.clone())),
+                &false => Ok(Value::CharString("".to_owned())),
+            },
             (&Value::Boolean(ref lbool), Value::Boolean(ref rbool)) => {
                 Ok(Value::Boolean(lbool & rbool))
+            }
+            (&Value::Boolean(ref boolean), Value::Map(ref map))
+            | (&Value::Map(ref map), Value::Boolean(ref boolean)) => {
+                let result = map
+                    .borrow()
+                    .clone()
+                    .into_iter()
+                    .map(|(ref key, ref value)| {
+                        (
+                            key.mul(Value::Boolean(*boolean))
+                                .expect("everything is multipliable by a boolean"),
+                            value
+                                .mul(Value::Boolean(*boolean))
+                                .expect("everything is multipliable by a boolean"),
+                        )
+                    })
+                    .collect();
+
+                Ok(Value::Map(Rc::new(RefCell::new(result))))
             }
             (l, r) => Err(format!("Unsupported operation * for {:?} and {:?}", l, r)),
         }
@@ -180,40 +229,104 @@ mod test {
 
     #[test]
     fn mul() {
-        // Numbers
+        // Numbers * Number
         assert_eq!(Ok(v_number(4, 1)), v_number(8, 1).mul(v_number(1, 2)));
-        assert_err!(v_number(8, 1).mul(v_string("toto")));
-        // Strings
-        assert_err!(v_string("hello ").mul(v_string("world")));
+        // Number * CharString
+        assert_eq!(Ok(v_string("totototo")), v_number(4, 1).mul(v_string("to")));
+        assert_eq!(Ok(v_string("tototot")), v_number(7, 2).mul(v_string("to")));
+        assert_eq!(Ok(v_string("tot")), v_number(3, 4).mul(v_string("toto")));
+        assert_eq!(Ok(v_string("")), v_number(0, 1).mul(v_string("toto")));
+        // CharString * Number
         assert_eq!(Ok(v_string("totototo")), v_string("to").mul(v_number(4, 1)));
         assert_eq!(Ok(v_string("tototot")), v_string("to").mul(v_number(7, 2)));
         assert_eq!(Ok(v_string("tot")), v_string("toto").mul(v_number(3, 4)));
         assert_eq!(Ok(v_string("")), v_string("toto").mul(v_number(0, 1)));
-        // Boolean
+        // Number * Boolean
+        assert_eq!(Ok(v_number(0, 1)), v_number(1, 1).mul(v_bool(false)));
+        assert_eq!(Ok(v_number(1, 1)), v_number(1, 1).mul(v_bool(true)));
+        // Boolean * Number
+        assert_eq!(Ok(v_number(0, 1)), v_bool(false).mul(v_number(1, 1)));
+        assert_eq!(Ok(v_number(1, 1)), v_bool(true).mul(v_number(1, 1)));
+        // Number * Map
+        assert_eq!(
+            Ok(v_map(vec![(v_string("tototo"), v_number(3, 1))])),
+            v_number(3, 1).mul(v_map(vec![(v_string("to"), v_number(1, 1))]))
+        );
+        // Map * Number
+        assert_eq!(
+            Ok(v_map(vec![(v_string("tototo"), v_number(3, 1))])),
+            v_map(vec![(v_string("to"), v_number(1, 1))]).mul(v_number(3, 1))
+        );
+        // TODO: Number * Closure
+        // TODO: Closure * Number
+
+        // CharString * CharString
+        assert_err!(v_string("hello ").mul(v_string("world")));
+        // CharString * Boolean
+        assert_eq!(Ok(v_string("")), v_string("toto").mul(v_bool(false)));
+        assert_eq!(Ok(v_string("toto")), v_string("toto").mul(v_bool(true)));
+        // Boolean * CharString
+        assert_eq!(Ok(v_string("")), v_bool(false).mul(v_string("toto")));
+        assert_eq!(Ok(v_string("toto")), v_bool(true).mul(v_string("toto")));
+        // TODO: CharString * Map
+        // TODO: Map * CharString
+
+        // Boolean * Boolean
         assert_eq!(Ok(v_bool(true)), v_bool(true).mul(v_bool(true)));
         assert_eq!(Ok(v_bool(false)), v_bool(true).mul(v_bool(false)));
         assert_eq!(Ok(v_bool(false)), v_bool(false).mul(v_bool(true)));
         assert_eq!(Ok(v_bool(false)), v_bool(false).mul(v_bool(false)));
-        assert_err!(v_bool(false).mul(v_number(1, 1)));
-        // Map can't be multiplied?
-        assert_err!(v_map(vec![]).mul(v_map(vec![])));
+
+        // Boolean * Map
+        assert_eq!(
+            Ok(v_map(vec![(v_string("toto"), v_number(1, 1))])),
+            v_bool(true).mul(v_map(vec![(v_string("toto"), v_number(1, 1))]))
+        );
+        assert_eq!(
+            Ok(v_map(vec![(v_string(""), v_number(0, 1))])),
+            v_bool(false).mul(v_map(vec![(v_string("toto"), v_number(1, 1))]))
+        );
+        // Map * Boolean
+        assert_eq!(
+            Ok(v_map(vec![(v_string("toto"), v_number(1, 1))])),
+            v_map(vec![(v_string("toto"), v_number(1, 1))]).mul(v_bool(true))
+        );
+        assert_eq!(
+            Ok(v_map(vec![(v_string(""), v_number(0, 1))])),
+            v_map(vec![(v_string("toto"), v_number(1, 1))]).mul(v_bool(false))
+        );
+        // TODO: Boolean * Closure
+        // TODO: Closure * Boolean
+
+        // Map * Map
     }
 
     #[test]
     fn div() {
-        // Numbers
+        // Number / Number
         assert_eq!(Ok(v_number(16, 1)), v_number(8, 1).div(v_number(1, 2)));
+
+        // Number / CharString
         assert_err!(v_number(8, 1).div(v_number(0, 1)));
         assert_err!(v_number(8, 1).div(v_string("toto")));
-        // Strings
-        assert_err!(v_string("hello ").div(v_string("world")));
+        // TODO: Number / Boolean
+        // TODO: Number / Map
+
+        // CharString / Number
         assert_eq!(Ok(v_string("t")), v_string("to").div(v_number(2, 1)));
         assert_eq!(Ok(v_string("tototot")), v_string("to").div(v_number(2, 7)));
         assert_eq!(Ok(v_string("tot")), v_string("toto").div(v_number(4, 3)));
         assert_err!(v_string("toto").div(v_number(0, 1)));
-        // Boolean can't be divided
+        // CharString / CharString
+        assert_err!(v_string("hello ").div(v_string("world")));
+        // TODO: CharString / Boolean
+        // TODO: CharString / Map
+
+        // TODO: Boolean / Number
+        // TODO: Boolean / CharStrings
+        // Boolean / Boolean
         assert_err!(v_bool(true).div(v_bool(true)));
-        // Map can't be div?
+        // Map / Map
         assert_err!(v_map(vec![]).div(v_map(vec![])));
     }
 
