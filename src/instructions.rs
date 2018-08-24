@@ -43,7 +43,7 @@ impl Eq for NativeFunction {}
 
 impl Ord for NativeFunction {
     fn cmp(&self, other: &NativeFunction) -> Ordering {
-        (self.function as *const _).cmp(&(other.function as *const _))
+        (self.function as *const usize).cmp(&(other.function as *const usize))
     }
 }
 
@@ -75,7 +75,6 @@ pub enum Instruction {
     BinOp(Op),
     Import,
     Native(NativeFunction),
-    Nop,
 }
 
 pub type InstructionSequence = Vec<Instruction>;
