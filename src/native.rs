@@ -3,8 +3,8 @@ use value::Value;
 // TODO: Make Vm a trait?
 use binding_map::BindingMap;
 use closure::Closure;
-use num::bigint::{BigInt, ToBigInt};
-use num::rational::{BigRational, Ratio};
+use num::bigint::BigInt;
+use num::rational::Ratio;
 use num::ToPrimitive;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -29,10 +29,10 @@ impl FileDescriptor {
     fn read_to_string(&mut self) -> Result<String, String> {
         let mut buffer = String::new();
         match self {
-            &mut FileDescriptor::TcpStream(ref mut s) => {
-                s.read_to_string(&mut buffer);
-                Ok(buffer)
-            }
+            &mut FileDescriptor::TcpStream(ref mut s) => match s.read_to_string(&mut buffer) {
+                Err(_) => return Err("can't read on this file descriptor".to_owned()),
+                Ok(_) => Ok(buffer),
+            },
             _ => Err("can't read on this file descriptor".to_owned()),
         }
     }
@@ -177,7 +177,7 @@ fn native_socket_tcp_connect(vm: &mut Vm) -> InstructionSequence {
         }
     };
 
-    let mut stream = match TcpStream::connect(address) {
+    let stream = match TcpStream::connect(address) {
         Ok(stream) => stream,
         Err(e) => {
             vm.push(io_result(
@@ -209,7 +209,7 @@ fn native_socket_tcp_listen(vm: &mut Vm) -> InstructionSequence {
         }
     };
 
-    let mut listener = match TcpListener::bind(address) {
+    let listener = match TcpListener::bind(address) {
         Ok(listener) => listener,
         Err(e) => {
             vm.push(io_result(
@@ -563,7 +563,7 @@ mod test {
 
     #[test]
     fn native_tcp_connect_opens_a_tcp_stream() {
-        let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
+        let _listener = TcpListener::bind("127.0.0.1:8080").unwrap();
 
         let mut vm = Vm::empty();
         vm.local_assign(&"address".to_owned(), v_string("127.0.0.1:8080"));
@@ -571,7 +571,7 @@ mod test {
         let result = native_socket_tcp_connect(&mut vm);
         assert_eq!(vec![Instruction::Raise], result);
 
-        let socket_fd = match vm.pop() {
+        let _socket_fd = match vm.pop() {
             Some(Value::Map(map)) => {
                 match map.borrow().get(&v_string("socket.result")) {
                     Some(&Value::Number(_)) => {} // All good
@@ -590,7 +590,7 @@ mod test {
         let result = native_socket_tcp_listen(&mut vm);
         assert_eq!(vec![Instruction::Raise], result);
 
-        let socket_fd = match vm.pop() {
+        let _socket_fd = match vm.pop() {
             Some(Value::Map(map)) => {
                 match map.borrow().get(&v_string("socket.result")) {
                     Some(&Value::Number(_)) => {} // All good
@@ -607,7 +607,7 @@ mod test {
     fn native_tcp_accept_calls_a_function_with_the_socket() {
         let mut vm = Vm::empty();
         let listener = TcpListener::bind("127.0.0.1:8082").unwrap();
-        let socket = TcpStream::connect("127.0.0.1:8082").unwrap();
+        let _socket = TcpStream::connect("127.0.0.1:8082").unwrap();
 
         let callback = v_closure(vec!["socket".to_owned()], vec![], None);
 
@@ -629,8 +629,8 @@ mod test {
         let mut vm = Vm::empty();
         let listener = TcpListener::bind("127.0.0.1:8083").unwrap();
         let mut connector = TcpStream::connect("127.0.0.1:8083").unwrap();
-        connector.write("foo".as_bytes());
-        connector.flush();
+        connector.write("foo".as_bytes()).expect("write failed");
+        connector.flush().expect("flush failed");
         connector
             .shutdown(Shutdown::Both)
             .expect("expect shutdown of connected tcp stream");
@@ -652,7 +652,7 @@ mod test {
     fn native_io_write_writes_to_a_file_descriptor_and_raises() {
         let mut vm = Vm::empty();
         let listener = TcpListener::bind("127.0.0.1:8084").unwrap();
-        let mut connector = TcpStream::connect("127.0.0.1:8084").unwrap();
+        let _connector = TcpStream::connect("127.0.0.1:8084").unwrap();
 
         let (socket, _) = listener.accept().unwrap();
 
