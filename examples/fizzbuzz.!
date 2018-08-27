@@ -1,0 +1,66 @@
+let file = import("file")
+
+let divides = fn(x, y) do
+  rescue({ "leftover" => 0 }) do
+    raise({ "divides" => true })
+  end
+
+  rescue({ "leftover" => l, "positive" => false }) do
+    raise({ "divides" => false })
+  end
+
+  let iterate = fn(leftover) do
+    raise({ "leftover" => leftover - y, "positive" => leftover > 0 })
+  end
+
+  rescue({ "leftover" => l, "positive" => true }) do
+    iterate(l)
+  end
+
+  iterate(x)
+end
+
+let fizzbuzz = fn(x) do
+  let output = ""
+
+  rescue({ "finished" => true }) do
+    file.write("result.txt", output)
+  end
+
+  let loop_with = fn(n, loop_output) do
+    output = output + loop_output
+    output = output + "\n"
+    raise({ "n" => n + 1, "finished" => n == x })
+  end
+
+  let try_divides = fn(n) do
+    rescue({ "divides" => divides_3 }) do
+      rescue({ "divides" => divides_5 }) do
+        raise({ "divides_5" => divides_5, "divides_3" => divides_3 })
+      end
+      divides(n, 5)
+    end
+    divides(n, 3)
+  end
+
+  rescue({ "n" => n }) do
+    rescue({ "divides_5" => true, "divides_3" => true }) do
+      loop_with(n, "FizzBuzz")
+    end
+    rescue({ "divides_5" => false, "divides_3" => false }) do
+      loop_with(n, n)
+    end
+    rescue({ "divides_5" => true }) do
+      loop_with(n, "Buzz")
+    end
+    rescue({ "divides_3" => true }) do
+      loop_with(n, "Fizz")
+    end
+
+    try_divides(n)
+  end
+
+  raise({ "n" => 1 })
+end
+
+fizzbuzz(50)

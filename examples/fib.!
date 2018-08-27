@@ -1,0 +1,11 @@
+let fib = fn(k) do
+  rescue({ "m" => m, "k" => 0 }) do
+    raise({ "result" => m })
+  end
+  rescue({ "m" => m, "n" => n, "k" => k }) do
+    raise({ "m" => n, "n" => m + n, "k" => k - 1 })
+  end
+  raise({ "m" => 0, "n" => 1, "k" => k })
+end
+
+fib(32)
