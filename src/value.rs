@@ -161,6 +161,9 @@ impl Value {
             (&Value::CharString(ref lstr), Value::CharString(ref rstr)) => {
                 Ok(Value::CharString((*lstr).clone() + rstr))
             }
+            (&Value::CharString(ref lstr), Value::Number(ref rratio)) => {
+                Ok(Value::CharString((*lstr).clone() + &format!("{}", rratio)))
+            }
             (&Value::Closure(_, _), Value::Closure(_, _)) => {
                 Err("Addition of closures is not supported".to_owned())
             }
@@ -352,7 +355,9 @@ mod test {
             Ok(v_string("hello world")),
             v_string("hello ").add(v_string("world"))
         );
-        assert_err!(v_string("toto").add(v_number(1, 1)));
+        assert_eq!(
+            Ok(v_string("toto1")), v_string("toto").add(v_number(1, 1))
+            );
         // Boolean
         assert_eq!(Ok(v_bool(true)), v_bool(true).add(v_bool(true)));
         assert_eq!(Ok(v_bool(true)), v_bool(true).add(v_bool(false)));
