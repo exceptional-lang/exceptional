@@ -145,6 +145,30 @@ mod test_expressions {
             e_import(e_literal(l_string(&"toto")))
         )
     }
+
+    #[test]
+    fn parses_comparison_expressions() {
+        assert_eq!(
+            parse_expression(&"a == b"),
+            e_binop("==", e_identifier("a"), e_identifier("b"))
+        );
+        assert_eq!(
+            parse_expression(&"a >= b"),
+            e_binop(">=", e_identifier("a"), e_identifier("b"))
+        );
+        assert_eq!(
+            parse_expression(&"a > b"),
+            e_binop(">", e_identifier("a"), e_identifier("b"))
+        );
+        assert_eq!(
+            parse_expression(&"a <= b"),
+            e_binop("<=", e_identifier("a"), e_identifier("b"))
+        );
+        assert_eq!(
+            parse_expression(&"a < b"),
+            e_binop("<", e_identifier("a"), e_identifier("b"))
+        );
+    }
 }
 
 #[cfg(test)]

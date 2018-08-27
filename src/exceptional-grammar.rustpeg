@@ -53,10 +53,23 @@ callArguments -> Vec<Expression>
 expression -> Expression
   = importExpression
   / functionDefinition
+  / comparison
   / addition
 
 importExpression -> Expression
   = import lparen exp:expression rparen { Expression::Import(Box::new(exp)) }
+
+comparison -> Expression
+  = left:addition op:comparison_op right:addition {
+      Expression::BinOp(op, Box::new(left), Box::new(right))
+    }
+
+comparison_op -> String
+  = "==" __ { "==".to_owned() }
+  / ">=" __ { ">=".to_owned() }
+  / ">" __ { ">".to_owned() }
+  / "<=" __ { "<=".to_owned() }
+  / "<" __ { "<".to_owned() }
 
 addition -> Expression
   = left:multiplication op:addition_op right:addition {

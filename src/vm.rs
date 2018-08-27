@@ -174,6 +174,21 @@ impl Vm {
                         Op::Sub => left.sub(right),
                         Op::Mul => left.mul(right),
                         Op::Div => left.div(right),
+                        Op::Eq => left.val_eq(&right),
+                        Op::GtEq => {
+                            match left.val_eq(&right) {
+                                Ok(Value::Boolean(false)) => left.val_gt(&right),
+                                yes => yes,
+                            }
+                        }
+                        Op::Gt => left.val_gt(&right),
+                        Op::LtEq => {
+                            match left.val_eq(&right) {
+                                Ok(Value::Boolean(false)) => left.val_lt(&right),
+                                yes => yes,
+                            }
+                        }
+                        Op::Lt => left.val_lt(&right),
                     };
 
                     if let Ok(result) = binop_result {

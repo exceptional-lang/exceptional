@@ -11,6 +11,11 @@ pub enum Op {
     Div,
     Add,
     Sub,
+    Eq,
+    GtEq,
+    Gt,
+    LtEq,
+    Lt,
 }
 
 pub type NativeCode = *const fn(&mut Vm) -> InstructionSequence;

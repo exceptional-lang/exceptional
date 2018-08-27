@@ -174,6 +174,18 @@ impl Value {
             (l, r) => Err(format!("Unsupported operation + for {:?} and {:?}", l, r)),
         }
     }
+
+    pub fn val_eq(&self, right: &Value) -> BinopResult {
+        Ok(Value::Boolean(self == right))
+    }
+
+    pub fn val_gt(&self, right: &Value) -> BinopResult {
+        Ok(Value::Boolean(self > right))
+    }
+
+    pub fn val_lt(&self, right: &Value) -> BinopResult {
+        Ok(Value::Boolean(self < right))
+    }
 }
 
 #[cfg(test)]
@@ -357,5 +369,153 @@ mod test {
                 .add(v_map(vec![(v_number(2, 1), v_number(2, 1))]))
         );
         assert_err!(v_map(vec![(v_number(1, 1), v_number(1, 1))]).add(v_number(1, 1)));
+    }
+
+    #[test]
+    fn eq() {
+        // Number == Number
+        assert_eq!(Ok(v_bool(true)), v_number(1, 1).val_eq(&v_number(1, 1)));
+        assert_eq!(Ok(v_bool(false)), v_number(2, 1).val_eq(&v_number(1, 1)));
+        // Number == String
+        assert_eq!(Ok(v_bool(false)), v_number(2, 1).val_eq(&v_string("toto")));
+        // Number == Boolean
+        assert_eq!(Ok(v_bool(false)), v_number(2, 1).val_eq(&v_bool(false)));
+        // Number == Map
+        assert_eq!(Ok(v_bool(false)), v_number(2, 1).val_eq(&v_map(vec![])));
+
+        // CharString == CharString
+        assert_eq!(Ok(v_bool(true)), v_string("toto").val_eq(&v_string("toto")));
+        assert_eq!(Ok(v_bool(false)), v_string("toto").val_eq(&v_string("titi")));
+        // CharString == Boolean
+        assert_eq!(Ok(v_bool(false)), v_string("toto").val_eq(&v_bool(false)));
+        // CharString == Map
+        assert_eq!(Ok(v_bool(false)), v_string("toto").val_eq(&v_map(vec![])));
+
+        // Boolean == Boolean
+        assert_eq!(Ok(v_bool(true)), v_bool(true).val_eq(&v_bool(true)));
+        assert_eq!(Ok(v_bool(false)), v_bool(false).val_eq(&v_bool(true)));
+        // Boolean == Map
+        assert_eq!(Ok(v_bool(false)), v_bool(true).val_eq(&v_map(vec![])));
+
+        // Map == Map
+        assert_eq!(
+            Ok(v_bool(true)),
+            v_map(vec![(v_string("a"), v_number(1, 1))])
+                .val_eq(&v_map(vec![(v_string("a"), v_number(1, 1))]))
+        );
+        assert_eq!(
+            Ok(v_bool(false)),
+            v_map(vec![(v_string("not-a"), v_number(1, 1))])
+                .val_eq(&v_map(vec![(v_string("a"), v_number(1, 1))]))
+        );
+    }
+
+    #[test]
+    fn gt_and_lt() {
+        // Number > Number
+        assert_eq!(Ok(v_bool(true)), v_number(2, 1).val_gt(&v_number(1, 1)));
+        assert_eq!(Ok(v_bool(false)), v_number(1, 1).val_gt(&v_number(1, 1)));
+        assert_eq!(Ok(v_bool(false)), v_number(0, 1).val_gt(&v_number(1, 1)));
+        // Number < Number
+        assert_eq!(Ok(v_bool(true)), v_number(1, 1).val_lt(&v_number(2, 1)));
+        assert_eq!(Ok(v_bool(false)), v_number(1, 1).val_lt(&v_number(1, 1)));
+        assert_eq!(Ok(v_bool(false)), v_number(1, 1).val_lt(&v_number(0, 1)));
+        // Number > CharString
+        assert_eq!(Ok(v_bool(false)), v_number(2, 1).val_gt(&v_string("toto")));
+        // Number < CharString
+        assert_eq!(Ok(v_bool(false)), v_string("toto").val_lt(&v_number(2, 1)));
+        // Number > Boolean
+        assert_eq!(Ok(v_bool(false)), v_number(2, 1).val_gt(&v_bool(false)));
+        assert_eq!(Ok(v_bool(false)), v_number(2, 1).val_gt(&v_bool(true)));
+        // Number < Boolean
+        assert_eq!(Ok(v_bool(false)), v_bool(false).val_lt(&v_number(2, 1)));
+        assert_eq!(Ok(v_bool(false)), v_bool(true).val_lt(&v_number(2, 1)));
+        // Number > Map
+        assert_eq!(Ok(v_bool(false)), v_number(2, 1).val_gt(&v_map(vec![])));
+        // Number < Map
+        assert_eq!(Ok(v_bool(false)), v_map(vec![]).val_lt(&v_number(2, 1)));
+
+        // CharString > CharString
+        assert_eq!(Ok(v_bool(true)), v_string("toto").val_gt(&v_string("tot")));
+        assert_eq!(Ok(v_bool(false)), v_string("toto").val_gt(&v_string("toto")));
+        // CharString < CharString
+        assert_eq!(Ok(v_bool(true)), v_string("tot").val_lt(&v_string("toto")));
+        assert_eq!(Ok(v_bool(false)), v_string("toto").val_lt(&v_string("toto")));
+        // CharString > Number
+        assert_eq!(Ok(v_bool(true)), v_string("toto").val_gt(&v_number(2, 1)));
+        // CharString < Number
+        assert_eq!(Ok(v_bool(true)), v_number(2, 1).val_lt(&v_string("toto")));
+        // CharString > Boolean
+        assert_eq!(Ok(v_bool(false)), v_string("toto").val_gt(&v_bool(false)));
+        // CharString < Boolean
+        assert_eq!(Ok(v_bool(false)), v_bool(false).val_lt(&v_string("toto")));
+        // CharString > Map
+        assert_eq!(Ok(v_bool(false)), v_string("toto").val_gt(&v_map(vec![])));
+        // CharString < Map
+        assert_eq!(Ok(v_bool(false)), v_map(vec![]).val_lt(&v_string("toto")));
+
+        // Boolean > Boolean
+        assert_eq!(Ok(v_bool(true)), v_bool(true).val_gt(&v_bool(false)));
+        assert_eq!(Ok(v_bool(false)), v_bool(true).val_gt(&v_bool(true)));
+        assert_eq!(Ok(v_bool(false)), v_bool(false).val_gt(&v_bool(true)));
+        // Boolean < Boolean
+        assert_eq!(Ok(v_bool(true)), v_bool(false).val_lt(&v_bool(true)));
+        assert_eq!(Ok(v_bool(false)), v_bool(true).val_lt(&v_bool(true)));
+        assert_eq!(Ok(v_bool(false)), v_bool(true).val_lt(&v_bool(false)));
+        // Boolean > Number
+        assert_eq!(Ok(v_bool(true)), v_bool(true).val_gt(&v_number(1, 1)));
+        // Boolean < Number
+        assert_eq!(Ok(v_bool(true)), v_number(1, 1).val_lt(&v_bool(true)));
+        // Boolean > CharString
+        assert_eq!(Ok(v_bool(true)), v_bool(true).val_gt(&v_string("toto")));
+        // Boolean < CharString
+        assert_eq!(Ok(v_bool(true)), v_string("toto").val_lt(&v_bool(true)));
+        // Boolean > Map
+        assert_eq!(Ok(v_bool(false)), v_bool(true).val_gt(&v_map(vec![])));
+        // Boolean < Map
+        assert_eq!(Ok(v_bool(false)), v_map(vec![]).val_lt(&v_bool(true)));
+
+        // Map > Map
+        assert_eq!(
+            Ok(v_bool(false)),
+            v_map(vec![(v_string("a"), v_number(1, 1))])
+                .val_gt(&v_map(vec![(v_string("a"), v_number(2, 1))]))
+        );
+        assert_eq!(
+            Ok(v_bool(false)),
+            v_map(vec![(v_string("a"), v_number(1, 1))])
+                .val_gt(&v_map(vec![(v_string("b"), v_number(1, 1))]))
+        );
+        assert_eq!(
+            Ok(v_bool(true)),
+            v_map(vec![(v_string("b"), v_number(1, 1))])
+                .val_gt(&v_map(vec![(v_string("a"), v_number(2, 1))]))
+        );
+        assert_eq!(
+            Ok(v_bool(true)),
+            v_map(vec![(v_string("b"), v_number(2, 1))])
+                .val_gt(&v_map(vec![(v_string("b"), v_number(1, 1))]))
+        );
+        // Map < Map
+        assert_eq!(
+            Ok(v_bool(false)),
+            v_map(vec![(v_string("a"), v_number(2, 1))])
+                .val_lt(&v_map(vec![(v_string("a"), v_number(1, 1))]))
+        );
+        assert_eq!(
+            Ok(v_bool(false)),
+            v_map(vec![(v_string("b"), v_number(1, 1))])
+                .val_lt(&v_map(vec![(v_string("a"), v_number(1, 1))]))
+        );
+        assert_eq!(
+            Ok(v_bool(true)),
+            v_map(vec![(v_string("a"), v_number(2, 1))])
+                .val_lt(&v_map(vec![(v_string("b"), v_number(1, 1))]))
+        );
+        assert_eq!(
+            Ok(v_bool(true)),
+            v_map(vec![(v_string("b"), v_number(1, 1))])
+                .val_lt(&v_map(vec![(v_string("b"), v_number(2, 1))]))
+        );
     }
 }

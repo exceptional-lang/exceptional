@@ -90,13 +90,19 @@ fn compile_expression(expression: &Expression) -> InstructionSequence {
 }
 
 fn compile_binop(op: &str) -> Instruction {
-    match op {
-        "+" => Instruction::BinOp(Op::Add),
-        "-" => Instruction::BinOp(Op::Sub),
-        "/" => Instruction::BinOp(Op::Div),
-        "*" => Instruction::BinOp(Op::Mul),
+    let op_value = match op {
+        "+" => Op::Add,
+        "-" => Op::Sub,
+        "/" => Op::Div,
+        "*" => Op::Mul,
+        "==" => Op::Eq,
+        ">=" => Op::GtEq,
+        ">" => Op::Gt,
+        "<=" => Op::LtEq,
+        "<" => Op::Lt,
         _ => panic!("Unsupported binary operation: {:?}", op),
-    }
+    };
+    Instruction::BinOp(op_value)
 }
 
 pub fn compile(statements: &Vec<Statement>) -> InstructionSequence {
@@ -116,11 +122,20 @@ mod test {
     use test_helpers::*;
 
     #[test]
-    fn compiles_binop() {
+    fn compiles_arithmetics() {
         assert_eq!(compile_binop("+"), Instruction::BinOp(Op::Add));
         assert_eq!(compile_binop("-"), Instruction::BinOp(Op::Sub));
         assert_eq!(compile_binop("/"), Instruction::BinOp(Op::Div));
         assert_eq!(compile_binop("*"), Instruction::BinOp(Op::Mul));
+    }
+
+    #[test]
+    fn compiles_comparisons() {
+        assert_eq!(compile_binop("=="), Instruction::BinOp(Op::Eq));
+        assert_eq!(compile_binop(">="), Instruction::BinOp(Op::GtEq));
+        assert_eq!(compile_binop(">"), Instruction::BinOp(Op::Gt));
+        assert_eq!(compile_binop("<="), Instruction::BinOp(Op::LtEq));
+        assert_eq!(compile_binop("<"), Instruction::BinOp(Op::Lt));
     }
 
     #[test]
