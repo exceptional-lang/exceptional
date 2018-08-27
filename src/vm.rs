@@ -339,7 +339,8 @@ impl Vm {
                 let closure = Closure::new(Rc::new(compile(&statements)), top_bindings);
                 Value::Closure(Rc::new(args.clone()), Rc::new(closure))
             }
-            _ => panic!("not implemented"),
+            &Literal::Boolean(b) => Value::Boolean(b),
+            _ => panic!("not implemented literal_to_value for {:?}", literal),
         }
     }
 }
