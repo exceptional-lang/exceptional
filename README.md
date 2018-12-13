@@ -17,7 +17,7 @@ Exceptional has a few other peculiarities:
 Here's an example of how one can implement fibonacci.
 
 ```
-fibonacci = fn(x) do
+fibonacci = fn(k) do
   rescue({ "m" => m, "k" => 0 }) do
     raise({ "result" => m })
   end
